@@ -1,0 +1,72 @@
+arch_betavae: False
+loss_reconstruction: perceptual
+
+factor_names:
+  - age
+  - gender
+  - ethnicity
+  - hair_color
+  - beard
+  - glasses
+
+factor_dim: 32
+residual_dim: 256
+
+residual_std: 1
+
+perceptual_loss:
+  - 2
+  - 7
+  - 12
+  - 21
+  - 30
+
+train:
+  batch_size: 64
+  n_epochs: 0
+  n_epochs_between_evals: 20
+  n_epochs_between_visualizations: 1
+  n_epochs_before_entropy: 7
+
+  learning_rate:
+    latent: 0.01
+    classifier: 0.0001
+    generator: 0.001
+    min: 0.0001
+
+  loss_weights:
+    reconstruction: 1
+    residual_decay: 0.00001
+
+    entropy: 0.01
+    classification: 0.01
+    supervised: 10
+
+amortization:
+  batch_size: 256
+  n_epochs: 100
+  n_epochs_between_evals: 20
+  n_epochs_between_visualizations: 5
+
+  learning_rate:
+    max: 0.0005
+    min: 0.00001
+
+synthesis:
+  batch_size: 128
+  n_epochs: 100
+  n_epochs_between_evals: 20
+  n_epochs_between_visualizations: 3
+
+  adversarial: True
+
+  learning_rate:
+    generator: 0.0001
+    discriminator: 0.0001
+
+  loss_weights:
+    reconstruction: 1
+    latent: 1
+    adversarial: 1
+
+gt_labels: False
