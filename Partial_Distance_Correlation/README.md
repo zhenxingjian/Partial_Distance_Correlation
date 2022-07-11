@@ -21,6 +21,6 @@ Remove model Y from model X, and compute the correlation between the residual an
 | Resnet 50   |  Resnet 18   |  0.036     |  0.025    |  0.027       |  0.008 |
 | Resnet 50   |  VGG 19 BN   |  0.036     |  0.036    |  0.020       |  0.019| 
 
-*Note Accuracy: 1. 84.40%; 2. 69.76%; 3. 79.02%; 4. 82.54%; 5. 74.22%; 6. 75.57%; 7. 85.68%; 8. 84.13% *
+*Note Accuracy: 1. 84.40%; 2. 69.76%; 3. 79.02%; 4. 82.54%; 5. 74.22%; 6. 75.57%; 7. 85.68%; 8. 84.13%*
 
 
