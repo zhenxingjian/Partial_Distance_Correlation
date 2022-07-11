@@ -13,16 +13,14 @@ Note: this repo is heavily based on the baseline paper:
 DC between residual attributes (R) and attributes of interest, if we use the ground truth CLIP labeled data to measure the attribute of interest.
 
 | age vs R. | gender vs R. | ethnicity vs R. | hair color vs R. | beard vs R. | glasses vs R |
-|:---:|:---:|:---:|:---:|:---:|
+|:---:|:---:|:---:|:---:|:---:|:---:|
 | 0.0329 | 0.0180 | 0.0222 | 0.0242 | 0.0219 | 0.0255 |
-|:---:|:---:|:---:|:---:|:---:|
 
 DC between residual attributes (R) and attributes of interest, if we use in-model classifier to classify the attribute of interest.
 
 | age vs R. | gender vs R. | ethnicity vs R. | hair color vs R. | beard vs R. | glasses vs R |
-|:---:|:---:|:---:|:---:|:---:|
+|:---:|:---:|:---:|:---:|:---:|:---:|
 | 0.0430 | 0.0124 | 0.0376 | 0.0259 | 0.0490 | 0.0188 |
-|:---:|:---:|:---:|:---:|:---:|
  
 
 
