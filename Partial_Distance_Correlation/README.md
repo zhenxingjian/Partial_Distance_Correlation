@@ -3,7 +3,7 @@
 ## Quantitive Results
 Remove model Y from model X, and compute the correlation between the residual and the ground truth label embedding.
 
-| Network \Theta_X |  Network $\Theta_Y$ | {\scriptsize $\mathcal{R}^2(X, GT)$}| {\scriptsize $\mathcal{R}^2(Y, GT)$}| {\scriptsize $\mathcal{R}^2((X|Y), GT)$}| {\scriptsize $\mathcal{R}^2((Y|X), GT)$} |
+| Network $\Theta_X$ |  Network $\Theta_Y$ | $\mathcal{R}^2(X, GT)$ | $\mathcal{R}^2(Y, GT)$ | $\mathcal{R}^2((X|Y), GT)$ | $\mathcal{R}^2((Y|X), GT)$ |
 |:---:|:---:|:---:|:---:|:---:|:---:|
 | ViT$^1$     |  Resnet 18$^2$   |  0.042     |  0.025    |  0.035       |  0.007 |
 | ViT         |  Resnet 50$^3$   |  0.043     |  0.036    |  0.028       |  0.017 |
