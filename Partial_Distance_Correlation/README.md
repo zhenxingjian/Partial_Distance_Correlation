@@ -32,3 +32,10 @@ To measure the pretrained model, such as whether ViT is better than Resnet regar
 ```
 python main_pDC_models.py --batch_size 128
 ```
+
+### Train GradCAM with Partial Distance Correlation
+```
+python main.py --batch_size 128 --lr 1e-5
+```
+
+
