@@ -267,21 +267,12 @@ if __name__ == '__main__':
                 break
 
     sim_mat = get_simmat_from_metrics(metrics_XX)
-    plt.imshow(sim_mat)
-    plt.title('X-X')
-    plt.show()
     np.save(args.PATH + 'modelX_model_X.npy', sim_mat.numpy())
 
     sim_mat = get_simmat_from_metrics(metrics_YY)
-    plt.imshow(sim_mat)
-    plt.title('Y-Y')
-    plt.show()
     np.save(args.PATH + 'modelY_model_Y.npy', sim_mat.numpy())
 
     sim_mat = get_simmat_from_metrics(metrics_XY)
-    plt.imshow(sim_mat)
-    plt.title('X-Y')
-    plt.show()
     np.save(args.PATH + 'modelX_model_Y.npy', sim_mat.numpy())
 
 
