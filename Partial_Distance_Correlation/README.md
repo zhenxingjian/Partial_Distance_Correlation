@@ -49,8 +49,13 @@ python show_heat_map.py
 will show all the similarity results.
 
 ### Train GradCAM with Partial Distance Correlation
+First we will need to train the modelX (in this case, ViT) from the pretrained checkpoint, to incorporate the partial distance correlation loss.
 ```
 python main.py --batch_size 128 --lr 1e-5
+```
+Then, after having the trained model, we will use the following code to visulize.
+```
+python main_CAM.py
 ```
 
 
