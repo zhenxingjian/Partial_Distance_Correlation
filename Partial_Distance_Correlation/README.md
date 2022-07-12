@@ -33,6 +33,12 @@ To measure the pretrained model, such as whether ViT is better than Resnet regar
 python main_pDC_models.py --batch_size 128
 ```
 
+To measure the similarity between layers, run the following
+```
+python main_similarity.py --batch_size 128 --PATH ./ViT_resnet34 --total_time 3600.0
+```
+PATH is where the results will be stored. Total time reflects the total available running time, so that we do not need to cover the entire ImageNet dataset to get the results.
+
 ### Train GradCAM with Partial Distance Correlation
 ```
 python main.py --batch_size 128 --lr 1e-5
