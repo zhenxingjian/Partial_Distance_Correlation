@@ -23,4 +23,12 @@ Remove model Y from model X, and compute the correlation between the residual an
 
 *Note Accuracy: 1. 84.40%; 2. 69.76%; 3. 79.02%; 4. 82.54%; 5. 74.22%; 6. 75.57%; 7. 85.68%; 8. 84.13%*
 
+## Qualititive Results
 
+## Training
+### Measure pretrained model
+To measure the pretrained model, such as whether ViT is better than Resnet regarding to the correlation with the ground truth labels, run the following commands with modification of modelX and modelY to be the pretrained model that we want to verify,
+
+```
+python main_pDC_models.py --batch_size 128
+```
