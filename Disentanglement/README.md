@@ -6,7 +6,7 @@ Note: this repo is heavily based on the baseline paper:
 
 ## Human Face Manipulation (FFHQ) Results
 
-### Visulization
+### Visualization
 ![Distance Correlation in Disentanglement](result/Disentanglement_result.png)
 
 ### Quantitive measurement (distance correlation between residual and attribute of interest)
