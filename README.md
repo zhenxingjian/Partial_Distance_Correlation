@@ -1,2 +1,8 @@
-# Partial_Distance_Correlation
-This is the official GitHub for paper: On the Versatile Uses of Partial Distance Correlation in Deep Learning, in ECCV 2022
+# On the Versatile Uses of Partial Distance Correlation in Deep Learning - Official PyTorch Implementation
+> [On the Versatile Uses of Partial Distance Correlation in Deep Learning](https://arxiv.org/abs/2207.09684)  
+> Xingjian Zhen, Zihang Meng, Rudrasis Chakraborty, Vikas Singh 
+> European Conference on Computer Vision (ECCV), 2022.
+
+> **Abstract:** Comparing the functional behavior of neural network models, whether it is a single network over time or two (or more networks) during or post-training, is an essential step in understanding what they are learning (and what they are not), and for identifying strategies for regularization or efficiency improvements. Despite recent progress, e.g., comparing vision transformers to CNNs, systematic comparison of function, especially across different networks, remains difficult and is often carried out layer by layer. Approaches such as canonical correlation analysis (CCA) are applicable in principle, but have been sparingly used so far. In this paper, we revisit a (less widely known) from statistics, called distance correlation (and its partial variant), designed to evaluate correlation between feature spaces of different dimensions. We describe the steps necessary to carry out its deployment for large scale models -- this opens the door to a surprising array of applications ranging from conditioning one deep model w.r.t. another, learning disentangled representations as well as optimizing diverse models that would directly be more robust to adversarial attacks. Our experiments suggest a versatile regularizer (or constraint) with many advantages, which avoids some of the common difficulties one faces in such analyses. 
+
+<a href="https://arxiv.org/abs/2207.09684" target="_blank"><img src="https://img.shields.io/badge/arXiv-2207.09684-b31b1b.svg"></a>
