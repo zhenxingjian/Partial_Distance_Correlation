@@ -40,7 +40,7 @@ Remove model Y from model X, and compute the correlation between the residual an
 
 ### Disentanglement
 
-*Visulization*
+*Visualization*
 ![Distance Correlation in Disentanglement](Disentanglement/result/Disentanglement_result.png)
 
 *Quantitive measurement (distance correlation between residual and attribute of interest)*
