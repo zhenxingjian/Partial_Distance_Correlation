@@ -12,6 +12,8 @@
 
 ### Independent Features Help Robustness (Diverge Training)
 
+Table 1: The test accuracy (%) of a model $f_2$ on the adversarial examples generated using $f_1$ with the same architecture. "Baseline": train without constraint. "Ours": $f_2$ is independent to $f_1$. "Clean": test accuracy without adversarial examples.
+
 | Dataset | Network | Method | Clean | FGM $\epsilon=0.03$ | PGD $\epsilon=0.03$ | FGM $\epsilon=0.05$ | PGD $\epsilon=0.05$ | FGM $\epsilon=0.10$ | PGD $\epsilon=0.10$ |
 |:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | CIFAR10 | Resnet 18 | Baseline | 89.14 | 72.10 | 66.34 | 62.00 | 49.42 | 48.23 | 27.41 |
@@ -29,8 +31,7 @@
 
 ### Informative Comparisons between Networks (Partial Distance Correlation)
 
-Remove model Y from model X, and compute the correlation between the residual and the ground truth label embedding.
-
+Table 2: Partial DC between the network $\Theta_X$ conditioned on the network $\Theta_Y$ , and the ImageNet class name embedding. The higher value indicates the more information.
 
 | Network $\Theta_X$ |  Network $\Theta_Y$ | $\mathcal{R}^2(X, GT)$ | $\mathcal{R}^2(Y, GT)$ | $\mathcal{R}^2(X\|Y, GT)$ | $\mathcal{R}^2((Y\|X), GT)$ |
 |:---:|:---:|:---:|:---:|:---:|:---:|
@@ -60,13 +61,13 @@ Remove model Y from model X, and compute the correlation between the residual an
 
 *Quantitive measurement (distance correlation between residual and attribute of interest)*
 
-DC between residual attributes (R) and attributes of interest, if we use the ground truth CLIP labeled data to measure the attribute of interest.
+Table 3. DC between residual attributes (R) and attributes of interest, if we use the ground truth CLIP labeled data to measure the attribute of interest. Range from 0 to 1, and smaller is better.
 
 | age vs R. | gender vs R. | ethnicity vs R. | hair color vs R. | beard vs R. | glasses vs R |
 |:---:|:---:|:---:|:---:|:---:|:---:|
 | 0.0329 | 0.0180 | 0.0222 | 0.0242 | 0.0219 | 0.0255 |
 
-DC between residual attributes (R) and attributes of interest, if we use in-model classifier to classify the attribute of interest.
+Table 4. DC between residual attributes (R) and attributes of interest, if we use in-model classifier to classify the attribute of interest. Range from 0 to 1, and smaller is better.
 
 | age vs R. | gender vs R. | ethnicity vs R. | hair color vs R. | beard vs R. | glasses vs R |
 |:---:|:---:|:---:|:---:|:---:|:---:|
