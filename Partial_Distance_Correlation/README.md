@@ -1,4 +1,4 @@
-# On the Versatile Uses of Partial Distance Correlation in Deep Learning - Partial Distance Correlation implementation
+# On the Versatile Uses of Partial Distance Correlation in Deep Learning - Informative Comparisons between Networks (Partial Distance Correlation) Implementation
 
 ## Quantitive Results
 Remove model Y from model X, and compute the correlation between the residual and the ground truth label embedding.

@@ -1,4 +1,4 @@
-# On the Versatile Uses of Partial Distance Correlation in Deep Learning - Disentanglement implementation
+# On the Versatile Uses of Partial Distance Correlation in Deep Learning - Disentanglement Implementation
 
 Note: this repo is heavily based on the baseline paper:
 > [An Image is Worth More Than a Thousand Words: Towards Disentanglement in the Wild](http://www.vision.huji.ac.il/zerodim)  
