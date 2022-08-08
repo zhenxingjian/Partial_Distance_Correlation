@@ -72,3 +72,8 @@ Table 4. DC between residual attributes (R) and attributes of interest, if we us
 | age vs R. | gender vs R. | ethnicity vs R. | hair color vs R. | beard vs R. | glasses vs R |
 |:---:|:---:|:---:|:---:|:---:|:---:|
 | 0.0430 | 0.0124 | 0.0376 | 0.0259 | 0.0490 | 0.0188 |
+
+## Requirements
+![python 3.8](https://img.shields.io/badge/python-3.8-blue.svg)
+![pytorch 1.8](https://img.shields.io/badge/pytorch-1.8-orange.svg)
+![cuda 10.2](https://img.shields.io/badge/cuda-10.2-green.svg)
