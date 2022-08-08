@@ -77,3 +77,17 @@ Table 4. DC between residual attributes (R) and attributes of interest, if we us
 ![python 3.8](https://img.shields.io/badge/python-3.8-blue.svg)
 ![pytorch 1.8](https://img.shields.io/badge/pytorch-1.8-orange.svg)
 ![cuda 10.2](https://img.shields.io/badge/cuda-10.2-green.svg)
+
+
+## Training
+Please refer to each different directory for detailed training steps for each experiment.
+
+## Citation
+```
+@inproceedings{zhen2022versatile,
+  author    = {Zhen, Xingjian and Meng, Zihang and Chakraborty, Rudrasis and Singh, Vikas},
+  title     = {On the Versatile Uses of Partial Distance Correlation in Deep Learning},
+  booktitle = {Proceedings of the European conference on computer vision (ECCV)},
+  year      = {2022}
+}
+```
