@@ -7,6 +7,7 @@
 
 <a href="https://arxiv.org/abs/2207.09684" target="_blank"><img src="https://img.shields.io/badge/arXiv-2207.09684-b31b1b.svg"></a>
 
+[![YouTube Introduction](https://img.youtube.com/vi/F7MSjx7FVZg/0.jpg)](https://www.youtube.com/watch?v=F7MSjx7FVZg)
 
 ## Results
 
