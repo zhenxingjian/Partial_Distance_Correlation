@@ -62,13 +62,13 @@ Table 2: Partial DC between the network $\Theta_X$ conditioned on the network $\
 
 *Quantitive measurement (distance correlation between residual and attribute of interest)*
 
-Table 3. DC between residual attributes (R) and attributes of interest, if we use the ground truth CLIP labeled data to measure the attribute of interest. Range from 0 to 1, and smaller is better.
+Table 3: DC between residual attributes (R) and attributes of interest, if we use the ground truth CLIP labeled data to measure the attribute of interest. Range from 0 to 1, and smaller is better.
 
 | age vs R. | gender vs R. | ethnicity vs R. | hair color vs R. | beard vs R. | glasses vs R |
 |:---:|:---:|:---:|:---:|:---:|:---:|
 | 0.0329 | 0.0180 | 0.0222 | 0.0242 | 0.0219 | 0.0255 |
 
-Table 4. DC between residual attributes (R) and attributes of interest, if we use in-model classifier to classify the attribute of interest. Range from 0 to 1, and smaller is better.
+Table 4: DC between residual attributes (R) and attributes of interest, if we use in-model classifier to classify the attribute of interest. Range from 0 to 1, and smaller is better.
 
 | age vs R. | gender vs R. | ethnicity vs R. | hair color vs R. | beard vs R. | glasses vs R |
 |:---:|:---:|:---:|:---:|:---:|:---:|
