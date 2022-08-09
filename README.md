@@ -27,7 +27,7 @@ Table 1: The test accuracy (%) of a model $f_2$ on the adversarial examples gene
 | ImageNet | Resnet 152 |  Baseline  | 66.88  | 56.56     | 59.19    | 50.61       | 53.49     | 40.50 | 44.49 |
 | ImageNet | Resnet 152 |  Ours  | 68.04  | **58.34**    | **61.33**    | **52.59**      | **56.05**    | **42.61** | **47.17** |
 
-
+![Diverge Training](Diverge_Training/result/diverge_training.png)
 
 ### Informative Comparisons between Networks (Partial Distance Correlation)
 
@@ -52,7 +52,7 @@ Table 2: Partial DC between the network $\Theta_X$ conditioned on the network $\
 
 *Note Accuracy: 1. 84.40%; 2. 69.76%; 3. 79.02%; 4. 82.54%; 5. 74.22%; 6. 75.57%; 7. 85.68%; 8. 84.13%*
 
-
+![Grad Cam Heat Map](Partial_Distance_Correlation/result/Grad-CAM.png)
 
 ### Disentanglement
 
