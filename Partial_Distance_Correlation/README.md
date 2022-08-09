@@ -24,6 +24,7 @@ Remove model Y from model X, and compute the correlation between the residual an
 *Note Accuracy: 1. 84.40%; 2. 69.76%; 3. 79.02%; 4. 82.54%; 5. 74.22%; 6. 75.57%; 7. 85.68%; 8. 84.13%*
 
 ## Qualititive Results
+![Grad Cam Heat Map](result/Grad-CAM.png)
 
 ## Training
 ### Measure pretrained model
