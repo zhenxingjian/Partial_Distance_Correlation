@@ -9,6 +9,8 @@
 
 [![YouTube Introduction](https://img.youtube.com/vi/F7MSjx7FVZg/0.jpg)](https://www.youtube.com/watch?v=F7MSjx7FVZg)
 
+Please also go check the [project webpage](https://zhenxingjian.github.io/DC_webpage/)
+
 ## Results
 
 ### Independent Features Help Robustness (Diverge Training)
