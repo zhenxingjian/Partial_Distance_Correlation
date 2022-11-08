@@ -7,7 +7,8 @@
 
 <a href="https://arxiv.org/abs/2207.09684" target="_blank"><img src="https://img.shields.io/badge/arXiv-2207.09684-b31b1b.svg"></a>
 
-[![YouTube Introduction](https://img.youtube.com/vi/F7MSjx7FVZg/0.jpg)](https://www.youtube.com/watch?v=F7MSjx7FVZg)
+[![Award Talk](https://img.youtube.com/vi/svGAIEnv0EI/0.jpg)](https://youtu.be/svGAIEnv0EI)
+[![YouTube Introduction](https://img.youtube.com/vi/xIeDcih_OdI/0.jpg)](https://youtu.be/xIeDcih_OdI)
 
 Please also go check the [project webpage](https://zhenxingjian.github.io/DC_webpage/)
 
@@ -94,3 +95,5 @@ Please refer to each different directory for detailed training steps for each ex
   year      = {2022}
 }
 ```
+
+If you use distance correlation for disentanglement, please give credit to the following paper: [Measuring the Biases and Effectiveness of Content-Style Disentanglement](https://arxiv.org/abs/2008.12378)  which discusses a nice demonstration of distance correlation helps content style disentanglement. We were not aware of this paper when we wrote the paper last year and thank Sotirios Tsaftaris for communicating his findings with us.
