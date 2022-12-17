@@ -3,7 +3,7 @@
 > Xingjian Zhen, Zihang Meng, Rudrasis Chakraborty, Vikas Singh 
 > European Conference on Computer Vision (ECCV), 2022.
 
-# **Update**
+# Update:
 - Fixed typo in Partial_Distance_Correlation.ipynb  from Peasor_Correlation() to Pearson_Correlation()
 - Reimplementation in TensorFlow in TF_Partial_Distance_Correlation.ipynb
 

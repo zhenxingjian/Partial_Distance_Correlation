@@ -15,7 +15,6 @@ from DC_criterion import *
 from utils import progress_bar
 import torchvision.models as models
 from resnet import resnet152, resnet34
-
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--alpha', default=0.05, type=float, help='balance between accuracy and DC')
@@ -179,7 +178,6 @@ def train(epoch):
             correct += predicted.eq(targets).sum().item()
 
             DC_results_total += DC_results
-
             # print(DC_results)
 
             #progress_bar(batch_idx, len(trainloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d) | DC0: %.3f | DC1: %.3f | DC2: %.3f | DC3: %.3f'
