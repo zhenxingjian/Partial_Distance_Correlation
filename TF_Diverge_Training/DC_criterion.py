@@ -13,7 +13,7 @@ def run_nets(net, idx, inputs, targets, criterion, args,train=True):
     if train:
         outputs, learned_feature = net[idx](inputs)
     else:
-        outputs, learned_feature = net[idx].predict(inputs)
+        outputs, learned_feature = net[idx].predict(inputs,verbose=0)
     loss, _, _, DC_results = criterion(outputs, targets, learned_feature, ref_features)
     if len(DC_results) < args.num_nets - 1:
         for _ in range(args.num_nets - 1 - len(DC_results)):

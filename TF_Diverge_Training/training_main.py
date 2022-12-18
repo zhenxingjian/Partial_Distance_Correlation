@@ -85,7 +85,7 @@ if args.dataset=='cifar10':
 else:
     net = [model_name(input_shape=(224,224,3),classes=10) for _ in range(args.num_nets)]
 optimizers = [keras.optimizers.SGD(learning_rate=scheduler,momentum=0.9,decay=5e-4) for _ in range(args.num_nets)]
-model_paths = []
+model_paths = ['./checkpoint/ckpt_'+args.network+"_"+str(idx)+"_"+args.dataset for idx in range(args.num_nets)]
 
 if args.resume:
     # Load checkpoint.
@@ -93,10 +93,7 @@ if args.resume:
     assert os.path.isdir('checkpoint'), 'Error: no checkpoint directory found!'
     assert os.path.exists('./checkpoint/ckpt_'+str(args.num_nets-1))
     for idx in range(args.num_nets):
-        model_paths.append('./checkpoint/ckpt_'+args.network+"_"+str(idx)+"_"+args.dataset)
-        # checkpoint = torch.load(model_path)
         log = json.load(model_paths[idx]+'_log.json')
-        # net[idx].load_state_dict(checkpoint['net'])
         net[idx] = keras.models.load_model(model_paths[idx])
         best_acc[idx] = log['acc']
         start_epoch = max(start_epoch, log['epoch'])
