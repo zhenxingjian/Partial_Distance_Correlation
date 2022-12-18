@@ -171,7 +171,7 @@ def test(epoch):
                 outputs, loss, DC_results = run_nets(net, idx, inputs, targets, criterion, args,train=False)
                 loss = criterion.CE(outputs, targets)
 
-                test_loss += loss.item()
+                test_loss += loss.numpy()
                 predicted = tf.math.argmax(outputs,axis=1)
                 targets = tf.math.argmax(targets,axis=1)
 
@@ -181,7 +181,7 @@ def test(epoch):
                 DC_results_total += DC_results
 
                 progress_bar(batch_idx, len(test_gen), 'Loss: %.3f | Acc: %.3f%% (%d/%d) | DC0: %.3f | DC1: %.3f'
-                            % (test_loss/(batch_idx+1), 100.*tf.cast(correct,tf.float16)/total, correct, total, 
+                            % (test_loss/(batch_idx+1), 100.*correct.numpy()/total, correct, total, 
                             DC_results_total[0]/(batch_idx+1) , DC_results_total[1]/(batch_idx+1) ))
                 batch_idx += 1
                 test_gen.on_epoch_end()
