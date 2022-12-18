@@ -156,7 +156,6 @@ def test(epoch):
     global best_acc
     current_acc = []
     for idx in range(args.num_nets):
-        net[idx].eval()
         test_loss = 0
         correct = 0
         total = 0
