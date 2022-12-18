@@ -197,7 +197,7 @@ def test(epoch):
             if not os.path.isdir('checkpoint'):
                 os.mkdir('checkpoint')
             net[idx].save(model_paths[idx])
-            json.dump(log,open(model_paths[idx]+"_log.json","wb"))
+            json.dump(log,open(model_paths[idx]+"_log.json","w"))
             np.save(model_paths[idx]+"_optimizer.npy",optimizers[idx].get_weights())
             best_acc[idx] = current_acc[idx]
 
