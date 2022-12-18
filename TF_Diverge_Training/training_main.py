@@ -139,13 +139,13 @@ def train(epoch):
             # if total==0:
             #     print(f"total=0!!!batch size{batch_idx}")
             #     print(targets)
-            correct += tf.math.count_nonzero(tf.math.equal(predicted,(targets)))
+            correct += tf.math.count_nonzero(tf.math.equal(predicted,(targets))).numpy()
             DC_results_total += DC_results
             
             if batch_idx>391:
                 print('bug')
             progress_bar(batch_idx, len(train_gen), 'Loss: %.3f | Acc: %.3f%% (%d/%d) | DC0: %.3f | DC1: %.3f'
-                        % (train_loss/(batch_idx+1), 100.*correct.numpy()/total, correct, total, 
+                        % (train_loss/(batch_idx+1), 100.*correct/total, correct, total, 
                             DC_results_total[0]/(batch_idx+1) , DC_results_total[1]/(batch_idx+1) ))
             batch_idx += 1
             train_gen.on_epoch_end()
@@ -176,12 +176,12 @@ def test(epoch):
                 targets = tf.math.argmax(targets,axis=1)
 
                 total += len(targets)
-                correct += tf.math.count_nonzero(tf.math.equal(predicted,(targets)))
-
+                correct += tf.math.count_nonzero(tf.math.equal(predicted,(targets))).numpy()
+                
                 DC_results_total += DC_results
 
                 progress_bar(batch_idx, len(test_gen), 'Loss: %.3f | Acc: %.3f%% (%d/%d) | DC0: %.3f | DC1: %.3f'
-                            % (test_loss/(batch_idx+1), 100.*correct.numpy()/total, correct, total, 
+                            % (test_loss/(batch_idx+1), 100.*correct/total, correct, total, 
                             DC_results_total[0]/(batch_idx+1) , DC_results_total[1]/(batch_idx+1) ))
                 batch_idx += 1
                 test_gen.on_epoch_end()
@@ -193,15 +193,14 @@ def test(epoch):
     if sum(current_acc) > sum(best_acc):
         print('Saving..')
         for idx in range(args.num_nets):
-            state = {
-                'net': net[idx].state_dict(),
+            log = {
                 'acc': acc,
                 'epoch': epoch,
             }
             if not os.path.isdir('checkpoint'):
                 os.mkdir('checkpoint')
             net[idx].save(model_paths[idx])
-            json.dump(state,open(model_paths[idx]+"_log.json","wb"))
+            json.dump(log,open(model_paths[idx]+"_log.json","wb"))
             np.save(model_paths[idx]+"_optimizer.npy",optimizers[idx].get_weights())
             best_acc[idx] = current_acc[idx]
 
