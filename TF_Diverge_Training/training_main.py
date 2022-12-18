@@ -80,8 +80,12 @@ elif args.network == 'resnet18':
     model_name = ResNet18
 elif args.network == 'resnet101':
     model_name= ResNet101
-net = [model_name(input_shape=(32,32,3),classes=10) for _ in range(args.num_nets)]
+if args.dataset=='cifar10':
+    net = [model_name(input_shape=(32,32,3),classes=10) for _ in range(args.num_nets)]
+else:
+    net = [model_name(input_shape=(224,224,3),classes=10) for _ in range(args.num_nets)]
 optimizers = [keras.optimizers.SGD(learning_rate=scheduler,momentum=0.9,decay=5e-4) for _ in range(args.num_nets)]
+model_paths = []
 
 if args.resume:
     # Load checkpoint.
@@ -89,15 +93,15 @@ if args.resume:
     assert os.path.isdir('checkpoint'), 'Error: no checkpoint directory found!'
     assert os.path.exists('./checkpoint/ckpt_'+str(args.num_nets-1))
     for idx in range(args.num_nets):
-        model_path = './checkpoint/ckpt_'+str(idx)
+        model_paths.append('./checkpoint/ckpt_'+args.network+"_"+str(idx)+"_"+args.dataset)
         # checkpoint = torch.load(model_path)
-        log = json.load(model_path+'_log.json')
+        log = json.load(model_paths[idx]+'_log.json')
         # net[idx].load_state_dict(checkpoint['net'])
-        net[idx] = keras.models.load_model(model_path)
+        net[idx] = keras.models.load_model(model_paths[idx])
         best_acc[idx] = log['acc']
         start_epoch = max(start_epoch, log['epoch'])
         #set up otimizer
-        optim_weights = np.load(model_path+"_optimizer.npy")
+        optim_weights = np.load(model_paths[idx]+"_optimizer.npy")
         optimizers[idx].set_weights(optim_weights)
 
 
@@ -114,8 +118,9 @@ def train(epoch):
         total = 0
 
         DC_results_total = np.zeros(args.num_nets-1)
-
-        for batch_idx, batch in enumerate(train_gen):
+        #enumerate(train_gen) will iterate endlessly
+        for batch_idx in range(len(train_gen)):
+            batch = next(train_gen)
             if isinstance(batch,dict):  #grabbed from tfds
                 inputs = batch['image']
                 targets = batch['label']
@@ -131,13 +136,19 @@ def train(epoch):
             predicted = tf.math.argmax(outputs,axis=1)
             targets = tf.math.argmax(targets,axis=1)
             total += len(targets)
-
+            # if total==0:
+            #     print(f"total=0!!!batch size{batch_idx}")
+            #     print(targets)
             correct += tf.math.count_nonzero(tf.math.equal(predicted,(targets)))
             DC_results_total += DC_results
-
-            progress_bar(batch_idx, len(test_gen), 'Loss: %.3f | Acc: %.3f%% (%d/%d) | DC0: %.3f | DC1: %.3f'
-                         % (train_loss/(batch_idx+1), 100.*tf.cast(correct,tf.float16)/total, correct, total, 
+            
+            if batch_idx>391:
+                print('bug')
+            progress_bar(batch_idx, len(train_gen), 'Loss: %.3f | Acc: %.3f%% (%d/%d) | DC0: %.3f | DC1: %.3f'
+                        % (train_loss/(batch_idx+1), 100.*correct.numpy()/total, correct, total, 
                             DC_results_total[0]/(batch_idx+1) , DC_results_total[1]/(batch_idx+1) ))
+            batch_idx += 1
+            train_gen.on_epoch_end()
 
 
 
@@ -150,8 +161,14 @@ def test(epoch):
         correct = 0
         total = 0
         DC_results_total = np.zeros(args.num_nets-1)
-        with torch.no_grad():
-            for batch_idx, (inputs, targets) in enumerate(test_gen):
+
+        for batch_idx in range(len(test_gen)):
+            batch = next(test_gen)
+            if isinstance(batch,dict):   #grab data from tfds
+                inputs = batch['image']
+                targets = batch['label']
+            else :
+                (inputs, targets) = batch#grab data from keras ImageDataGenerator
                 outputs, loss, DC_results = run_nets(net, idx, inputs, targets, criterion, args,train=False)
                 loss = criterion.CE(outputs, targets)
 
@@ -165,9 +182,10 @@ def test(epoch):
                 DC_results_total += DC_results
 
                 progress_bar(batch_idx, len(test_gen), 'Loss: %.3f | Acc: %.3f%% (%d/%d) | DC0: %.3f | DC1: %.3f'
-                         % (test_loss/(batch_idx+1), 100.*tf.cast(correct,tf.float16)/total, correct, total, 
+                            % (test_loss/(batch_idx+1), 100.*tf.cast(correct,tf.float16)/total, correct, total, 
                             DC_results_total[0]/(batch_idx+1) , DC_results_total[1]/(batch_idx+1) ))
-
+                batch_idx += 1
+                test_gen.on_epoch_end()
 
         # Save checkpoint.
         acc = 100.*correct/total
@@ -183,9 +201,9 @@ def test(epoch):
             }
             if not os.path.isdir('checkpoint'):
                 os.mkdir('checkpoint')
-            net[idx].save(model_path)
-            json.dump(state,open(model_path+"_log.json","wb"))
-            np.save(model_path+"_optimizer.npy",optimizers[idx].get_weights())
+            net[idx].save(model_paths[idx])
+            json.dump(state,open(model_paths[idx]+"_log.json","wb"))
+            np.save(model_paths[idx]+"_optimizer.npy",optimizers[idx].get_weights())
             best_acc[idx] = current_acc[idx]
 
 

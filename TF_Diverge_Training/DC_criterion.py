@@ -9,7 +9,7 @@ def run_nets(net, idx, inputs, targets, criterion, args,train=True):
     ref_features = []
     for sub_net_idx in eval_sub_net:
         _, feature = net[sub_net_idx](inputs)
-        ref_features.append(feature.detach())
+        ref_features.append(feature.numpy())
     if train:
         outputs, learned_feature = net[idx](inputs)
     else:
