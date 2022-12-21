@@ -2,14 +2,7 @@
 This is the main divergr training module for CIFAR10 and ImageNet.
 By default it will train ResNet18 on CIFAR10 to produce results in the paper.
 """
-import torch
-import torch.nn as nn
-import torch.optim as optim
-import torch.nn.functional as F
-import torch.backends.cudnn as cudnn
 import albumentations as A
-import torchvision
-import torchvision.transforms as transforms
 import tensorflow as tf
 import tensorflow.keras as keras
 # from torchvision import datasets
