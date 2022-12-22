@@ -59,5 +59,7 @@ class Loss_DC(tf.keras.losses.Loss):
         else:
             dc_loss /= len(controls)+1e-12 
         loss = cls_loss + self.alpha*dc_loss
+        print("cls_loss:",cls_loss)
+        print("dc_loss:",dc_loss)
         return loss,cls_loss,dc_loss,DC_results
 
