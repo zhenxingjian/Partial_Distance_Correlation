@@ -77,7 +77,7 @@ if args.dataset=='cifar10':
     net = [model_name(input_shape=(32,32,3),classes=10) for _ in range(args.num_nets)]
 else:
     net = [model_name(input_shape=(224,224,3),classes=10) for _ in range(args.num_nets)]
-optimizers = [keras.optimizers.SGD(learning_rate=scheduler,momentum=0.9,decay=5e-4) for _ in range(args.num_nets)]
+optimizers = [keras.optimizers.SGD(learning_rate=scheduler,momentum=0.9,weight_decay=5e-4) for _ in range(args.num_nets)]
 model_paths = ['./checkpoint/ckpt_'+args.network+"_"+str(idx)+"_"+args.dataset for idx in range(args.num_nets)]
 
 if args.resume:
