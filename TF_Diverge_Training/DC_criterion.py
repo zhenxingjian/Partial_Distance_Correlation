@@ -54,7 +54,10 @@ class Loss_DC(tf.keras.losses.Loss):
             DC = self.Distance_Correlation(latent,control)
             dc_loss += DC
             DC_results.append(DC.numpy())
-        dc_loss /= len(controls)+1e-12 if len(controls)!=0 else 0
+        if len(controls)==0:
+            dc_loss =0
+        else:
+            dc_loss /= len(controls)+1e-12 
         loss = cls_loss + self.alpha*dc_loss
         return loss,cls_loss,dc_loss,DC_results
 
