@@ -22,11 +22,11 @@ def run_nets(net, idx, inputs, targets, criterion, args,train=True):
     return outputs, loss, DC_results
 
 class Loss_DC(tf.keras.losses.Loss):
-    def __init__(self,alpha=0.1,strategy=None):
-        with strategy.scope:
-            super(Loss_DC,self).__init__()
-            self.ce = tf.keras.losses.CategoricalCrossentropy()
-            self.alpha = alpha
+    def __init__(self,alpha=0.1):
+        super(Loss_DC,self).__init__()
+        # super.__init__()
+        self.ce = tf.keras.losses.CategoricalCrossentropy()
+        self.alpha = alpha
         print("Loss balance alpha is: ", alpha)
     def CE(self,y_pred,y_true):
         return self.ce(y_pred,y_true)
