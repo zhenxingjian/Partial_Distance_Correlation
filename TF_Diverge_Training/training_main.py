@@ -17,7 +17,7 @@ from DC_criterion import Loss_DC,run_nets
 from utils import *
 from Resnet import *
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
-parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
+parser.add_argument('--lr', default=0.01, type=float, help='learning rate')
 parser.add_argument('--alpha', default=0.05, type=float, help='balance between accuracy and DC')
 parser.add_argument('--resume', '-r', action='store_true',
                     help='resume from checkpoint')
@@ -77,7 +77,7 @@ if args.dataset=='cifar10':
     net = [model_name(input_shape=(32,32,3),classes=10) for _ in range(args.num_nets)]
 else:
     net = [model_name(input_shape=(224,224,3),classes=10) for _ in range(args.num_nets)]
-optimizers = [keras.optimizers.SGD(learning_rate=scheduler,momentum=0.9,weight_decay=5e-4) for _ in range(args.num_nets)]
+optimizers = [keras.optimizers.SGD(learning_rate=scheduler,momentum=0.9,decay=5e-4) for _ in range(args.num_nets)]
 model_paths = ['./checkpoint/ckpt_'+args.network+"_"+str(idx)+"_"+args.dataset for idx in range(args.num_nets)]
 
 if args.resume:
@@ -132,7 +132,7 @@ def train(epoch):
             correct += tf.math.count_nonzero(tf.math.equal(predicted,(targets))).numpy()
             DC_results_total += DC_results
             
-            if batch_idx>391:
+            if batch_idx>len(train_gen):
                 print('bug')
             progress_bar(batch_idx, len(train_gen), 'Loss: %.3f | Acc: %.3f%% (%d/%d) | DC0: %.3f | DC1: %.3f'
                         % (train_loss/(batch_idx+1), 100.*correct/total, correct, total, 

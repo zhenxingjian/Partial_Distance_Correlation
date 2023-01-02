@@ -24,7 +24,6 @@ def run_nets(net, idx, inputs, targets, criterion, args,train=True):
 class Loss_DC(tf.keras.losses.Loss):
     def __init__(self,alpha=0.1):
         super(Loss_DC,self).__init__()
-        # super.__init__()
         self.ce = tf.keras.losses.CategoricalCrossentropy()
         self.alpha = alpha
         print("Loss balance alpha is: ", alpha)
@@ -59,7 +58,7 @@ class Loss_DC(tf.keras.losses.Loss):
         else:
             dc_loss /= len(controls)+1e-12 
         loss = cls_loss + self.alpha*dc_loss
-        print("cls_loss:",cls_loss)
-        print("dc_loss:",dc_loss)
+        #print("cls_loss:",cls_loss)
+        #print("dc_loss:",dc_loss)
         return loss,cls_loss,dc_loss,DC_results
 
