@@ -280,7 +280,7 @@ def ResNet(input_shape=None, classes=10, block='bottleneck', residual_unit='v1',
            repetitions=None, initial_filters=64, activation='softmax', include_top=True,
            input_tensor=None, dropout=None, transition_dilation_rate=(1, 1),
            initial_strides=(2, 2), initial_kernel_size=(7, 7), initial_pooling='avg',
-           final_pooling=None, ):
+           final_pooling=None,return_feat=True):
     """Builds a custom ResNet like architecture. Defaults to ResNet50 v2.
     Args:
         input_shape: optional shape tuple, only to be specified
@@ -324,6 +324,7 @@ def ResNet(input_shape=None, classes=10, block='bottleneck', residual_unit='v1',
                 2D tensor.
             - `max` means that global max pooling will
                 be applied.
+        return_feat:whether to output the [n,2048] representations before the softmax layer
     Returns:
         The keras `Model`.
     """
@@ -406,36 +407,38 @@ def ResNet(input_shape=None, classes=10, block='bottleneck', residual_unit='v1',
         x = GlobalAveragePooling2D()(x)
     elif final_pooling == 'max':
         x = GlobalMaxPooling2D()(x)
-
-    model = Model(inputs=img_input, outputs=[x,features])
+    if return_feat:
+        model = Model(inputs=img_input, outputs=[x,features])
+    else:
+        model = Model(inputs=img_input,outputs=[x])
     return model
 
 
-def ResNet18(input_shape, classes):
+def ResNet18(input_shape, classes,return_feat=True):
     """ResNet with 18 layers and v1 residual units
     """
-    return ResNet(input_shape, classes, basic_block, repetitions=[2, 2, 2, 2])
+    return ResNet(input_shape, classes, basic_block, repetitions=[2, 2, 2, 2],return_feat=return_feat)
 
 
-def ResNet34(input_shape, classes):
+def ResNet34(input_shape, classes,return_feat=True):
     """ResNet with 34 layers and v1 residual units
     """
-    return ResNet(input_shape, classes, basic_block, repetitions=[3, 4, 6, 3])
+    return ResNet(input_shape, classes, basic_block, repetitions=[3, 4, 6, 3],return_feat=return_feat)
 
 
-def ResNet50(input_shape, classes):
+def ResNet50(input_shape, classes,return_feat=True):
     """ResNet with 50 layers and v1 residual units
     """
-    return ResNet(input_shape, classes, bottleneck, repetitions=[3, 4, 6, 3])
+    return ResNet(input_shape, classes, bottleneck, repetitions=[3, 4, 6, 3],return_feat=return_feat)
 
 
-def ResNet101(input_shape, classes):
+def ResNet101(input_shape, classes,return_feat=True):
     """ResNet with 101 layers and v1 residual units
     """
-    return ResNet(input_shape, classes, bottleneck, repetitions=[3, 4, 23, 3])
+    return ResNet(input_shape, classes, bottleneck, repetitions=[3, 4, 23, 3],return_feat=return_feat)
 
 
-def ResNet152(input_shape, classes):
+def ResNet152(input_shape, classes,return_feat=True):
     """ResNet with 152 layers and v1 residual units
     """
-    return ResNet(input_shape, classes, bottleneck, repetitions=[3, 8, 36, 3])
+    return ResNet(input_shape, classes, bottleneck, repetitions=[3, 8, 36, 3],return_feat=return_feat)

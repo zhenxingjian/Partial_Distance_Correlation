@@ -4,6 +4,8 @@ By default it will train ResNet18 on CIFAR10 to produce results in the paper.
 """
 import albumentations as A
 import tensorflow as tf
+import os 
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 import tensorflow.keras as keras
 # from torchvision import datasets
 from tensorflow.keras.datasets import cifar10
@@ -17,12 +19,12 @@ from DC_criterion import Loss_DC,run_nets
 from utils import *
 from Resnet import *
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
-parser.add_argument('--lr', default=0.01, type=float, help='learning rate')
+parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--alpha', default=0.05, type=float, help='balance between accuracy and DC')
 parser.add_argument('--resume', '-r', action='store_true',
                     help='resume from checkpoint')
 parser.add_argument('--num_nets', default=3, type=int, help='number of sub-networks')
-parser.add_argument('--batch_size', default=128, type=int, help='batch size')
+parser.add_argument('--batch_size', default=256, type=int, help='batch size')
 # parser.add_argument('--workers', default=2, type=int, help='number of workers for dataloader')
 parser.add_argument('--network', default='resnet152', type=str, help='name of the network')
 parser.add_argument('--epochs',type=int,help="training epochs. 200 according to the paper.",default=200)
@@ -77,7 +79,7 @@ if args.dataset=='cifar10':
     net = [model_name(input_shape=(32,32,3),classes=10) for _ in range(args.num_nets)]
 else:
     net = [model_name(input_shape=(224,224,3),classes=10) for _ in range(args.num_nets)]
-optimizers = [keras.optimizers.SGD(learning_rate=scheduler,momentum=0.9,decay=5e-4) for _ in range(args.num_nets)]
+optimizers = [keras.optimizers.SGD(learning_rate=scheduler,momentum=0.9,decay=5e-4,nesterov=True) for _ in range(args.num_nets)]
 model_paths = ['./checkpoint/ckpt_'+args.network+"_"+str(idx)+"_"+args.dataset for idx in range(args.num_nets)]
 
 if args.resume:
@@ -118,8 +120,8 @@ def train(epoch):
                 (inputs, targets) = batch#keras ImageDataGenerator
 
             with tf.GradientTape() as tape:
-                outputs, loss, DC_results = run_nets(net, idx, inputs, targets, criterion, args)
-                grads = tape.gradient(loss,net[idx].trainable_weights)
+                outputs, loss, DC_results = run_nets(net, idx, inputs, targets, criterion,training=True)
+                grads = tape.gradient(loss,net[idx].trainable_weights)            
                 optimizers[idx].apply_gradients(zip(grads,net[idx].trainable_weights))
                 train_loss += loss.numpy()
 
@@ -158,7 +160,7 @@ def test(epoch):
                 targets = batch['label']
             else :
                 (inputs, targets) = batch#grab data from keras ImageDataGenerator
-                outputs, loss, DC_results = run_nets(net, idx, inputs, targets, criterion, args,train=False)
+                outputs, loss, DC_results = run_nets(net, idx, inputs, targets, criterion,training=False)
                 loss = criterion.CE(outputs, targets)
 
                 test_loss += loss.numpy()
@@ -198,4 +200,5 @@ def test(epoch):
 for epoch in range(start_epoch, args.epochs):
     train(epoch)
     test(epoch)
-
+net[0].compile(optimizer=optimizers[0],loss="categorical_crossentropy",metrics=['accuracy'])
+net[0].fit(train_gen,validation_data=test_gen,epochs=50,batch_size=args.batch_size)

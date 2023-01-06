@@ -4,19 +4,19 @@ import numpy as np
 
 
 
-def run_nets(net, idx, inputs, targets, criterion, args,train=True):
+def run_nets(nets, idx, inputs, targets, criterion,training=True):
     eval_sub_net = list(range(idx))
     ref_features = []
     for sub_net_idx in eval_sub_net:
-        _, feature = net[sub_net_idx](inputs)
+        _, feature = nets[sub_net_idx](inputs)
         ref_features.append(feature.numpy())
-    if train:
-        outputs, learned_feature = net[idx](inputs)
+    if training:
+        outputs, learned_feature = nets[idx](inputs,training=True)
     else:
-        outputs, learned_feature = net[idx].predict(inputs,verbose=0)
+        outputs, learned_feature = nets[idx].predict(inputs,verbose=0)
     loss, _, _, DC_results = criterion(outputs, targets, learned_feature, ref_features)
-    if len(DC_results) < args.num_nets - 1:
-        for _ in range(args.num_nets - 1 - len(DC_results)):
+    if len(DC_results) < len(nets):
+        for _ in range(len(nets) - 1 - len(DC_results)):
             DC_results.append(0.0)
     DC_results = np.asarray(DC_results)
     return outputs, loss, DC_results

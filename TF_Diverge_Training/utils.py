@@ -13,7 +13,7 @@ import tensorflow.keras.layers as layers
 _, term_width = os.popen('stty size', 'r').read().split()
 term_width = int(term_width)
 
-TOTAL_BAR_LENGTH = 50.
+TOTAL_BAR_LENGTH = 45.
 last_time = time.time()
 begin_time = last_time
 def progress_bar(current, total, msg=None):
@@ -135,7 +135,7 @@ def prepare_cifar10(batch_size):
     test_gen.fit(x_test)
     y_train = keras.utils.to_categorical(y_train)
     y_test = keras.utils.to_categorical(y_test)
-    return train_gen.flow(x_train,y_train,batch_size=batch_size),test_gen.flow(x_test,y_test,batch_size=batch_size)
+    return train_gen.flow(x_train,y_train,batch_size=batch_size,shuffle=True),test_gen.flow(x_test,y_test,batch_size=batch_size)
 
 
 def prepare_imagenet(batch_size):
@@ -170,7 +170,7 @@ def prepare_imagenet(batch_size):
     train_data = train_data.shuffle(1024,reshuffle_each_iteration=True).batch(batch_size).prefetch(tf.data.AUTOTUNE)
 
     val_data = val_data.map(lambda x,y: (augmentation(x,training=True), y))
-    val_data = val_data.shuffle(1024,reshuffle_each_iteration=True).batch(batch_size).prefetch(tf.data.AUTOTUNE)
+    val_data = val_data.batch(batch_size).prefetch(tf.data.AUTOTUNE)
 
     return tfds.as_numpy(train_data),tfds.as_numpy(val_data),n_train,n_validation
 
