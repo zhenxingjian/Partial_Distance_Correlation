@@ -13,7 +13,7 @@ import os
 import numpy as np
 import argparse
 import json
-from DC_criterion import Loss_DC,run_nets
+from DC_criterion import Loss_DC,run_nets,eval_nets
 from utils import *
 from Resnet import *
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
@@ -79,9 +79,9 @@ elif args.network == 'resnet18':
 elif args.network == 'resnet101':
     model_name= ResNet101
 if args.dataset=='cifar10':
-    net = [model_name(input_shape=(32,32,3),classes=10) for _ in range(args.num_nets)]
+    nets = [model_name(input_shape=(32,32,3),classes=10) for _ in range(args.num_nets)]
 else:
-    net = [model_name(input_shape=(224,224,3),classes=10) for _ in range(args.num_nets)]
+    nets = [model_name(input_shape=(224,224,3),classes=10) for _ in range(args.num_nets)]
 try:
     optimizers = [keras.optimizers.SGD(learning_rate=scheduler,momentum=0.9,decay=5e-4) for _ in range(args.num_nets)]
 except:
@@ -95,7 +95,7 @@ if args.resume:
     assert os.path.exists('./checkpoint/ckpt_'+str(args.num_nets-1))
     for idx in range(args.num_nets):
         log = json.load(model_paths[idx]+'_log.json')
-        net[idx] = keras.models.load_model(model_paths[idx])
+        nets[idx] = keras.models.load_model(model_paths[idx])
         best_acc[idx] = log['acc']
         start_epoch = max(start_epoch, log['epoch'])
         #set up otimizer
@@ -119,17 +119,16 @@ def train(epoch):
         #enumerate(train_gen) will iterate endlessly
         for batch_idx in range(len(train_gen)):
             batch = next(train_gen)
-            if isinstance(batch,dict):  #grabbed from tfds
+            if isinstance(batch,dict):   #tfds
                 inputs = batch['image']
                 targets = batch['label']
             else :
                 (inputs, targets) = batch#keras ImageDataGenerator
 
-            with tf.GradientTape() as tape:
-                outputs, loss, DC_results = run_nets(net, idx, inputs, targets, criterion,training=True)
-                grads = tape.gradient(loss,net[idx].trainable_weights)            
-                optimizers[idx].apply_gradients(zip(grads,net[idx].trainable_weights))
-                train_loss += loss.numpy()
+            outputs, loss, DC_results,grads = run_nets(nets, idx, inputs, targets, criterion)
+            optimizers[idx].apply_gradients(zip(grads,nets[idx].trainable_weights))
+
+            train_loss += loss.numpy()
             predicted = tf.math.argmax(outputs,axis=1)
             targets = tf.math.argmax(targets,axis=1)
             total += len(targets)
@@ -142,10 +141,10 @@ def train(epoch):
             if batch_idx>len(train_gen):
                 print('bug')
             progress_bar(batch_idx, len(train_gen), 'Loss: %.3f | Acc: %.3f%% (%d/%d) | DC0: %.3f | DC1: %.3f'
-                        % (train_loss/(batch_idx+1), 100.*correct/total, correct, total, 
+                        % (loss, 100.*correct/total, correct, total, 
                             DC_results_total[0]/(batch_idx+1) , DC_results_total[1]/(batch_idx+1) ))
             batch_idx += 1
-            train_gen.on_epoch_end()
+        train_gen.on_epoch_end()
 
 
 
@@ -165,7 +164,7 @@ def test(epoch):
                 targets = batch['label']
             else :
                 (inputs, targets) = batch#grab data from keras ImageDataGenerator
-                outputs, loss, DC_results = run_nets(net, idx, inputs, targets, criterion,training=False)
+                outputs, loss, DC_results = eval_nets(nets, idx, inputs, targets, criterion)
                 loss = criterion.CE(outputs, targets)
 
                 test_loss += loss.numpy()
@@ -181,7 +180,7 @@ def test(epoch):
                             % (test_loss/(batch_idx+1), 100.*correct/total, correct, total, 
                             DC_results_total[0]/(batch_idx+1) , DC_results_total[1]/(batch_idx+1) ))
                 batch_idx += 1
-                test_gen.on_epoch_end()
+        test_gen.on_epoch_end()
 
         # Save checkpoint.
         acc = 100.*correct/total
@@ -196,7 +195,7 @@ def test(epoch):
             }
             if not os.path.isdir('checkpoint'):
                 os.mkdir('checkpoint')
-            net[idx].save(model_paths[idx])
+            nets[idx].save(model_paths[idx])
             json.dump(log,open(model_paths[idx]+"_log.json","w"))
             #np.save(model_paths[idx]+"_optimizer.npy",optimizers[idx].get_weights())
             best_acc[idx] = current_acc[idx]
@@ -205,5 +204,4 @@ def test(epoch):
 for epoch in range(start_epoch, args.epochs):
     train(epoch)
     test(epoch)
-net[0].compile(optimizer=optimizers[0],loss="categorical_crossentropy",metrics=['accuracy'])
-net[0].fit(train_gen,validation_data=test_gen,epochs=50,batch_size=args.batch_size)
+

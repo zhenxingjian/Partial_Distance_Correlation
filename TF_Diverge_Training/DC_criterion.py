@@ -1,34 +1,16 @@
 import tensorflow as tf
 
 import numpy as np
-
-
-
-def run_nets(nets, idx, inputs, targets, criterion,training=True):
-    eval_sub_net = list(range(idx))
-    ref_features = []
-    for sub_net_idx in eval_sub_net:
-        _, feature = nets[sub_net_idx](inputs)
-        ref_features.append(feature.numpy())
-    if training:
-        outputs, learned_feature = nets[idx](inputs,training=True)
-    else:
-        outputs, learned_feature = nets[idx].predict(inputs,verbose=0)
-    loss, _, _, DC_results = criterion(outputs, targets, learned_feature, ref_features)
-    if len(DC_results) < len(nets):
-        for _ in range(len(nets) - 1 - len(DC_results)):
-            DC_results.append(0.0)
-    DC_results = np.asarray(DC_results)
-    return outputs, loss, DC_results
+from contextlib import nullcontext
 
 class Loss_DC(tf.keras.losses.Loss):
     def __init__(self,alpha=0.1):
         super(Loss_DC,self).__init__()
-        self.ce = tf.keras.losses.CategoricalCrossentropy()
+        self.ce = tf.keras.losses.CategoricalCrossentropy(reduction=tf.keras.losses.Reduction.SUM_OVER_BATCH_SIZE)
         self.alpha = alpha
         print("Loss balance alpha is: ", alpha)
-    def CE(self,y_pred,y_true):
-        return self.ce(y_pred,y_true)
+    def CE(self,y_true,y_pred):
+        return self.ce(y_true,y_pred) #the reversed order of that in Pytorch!!!
 
     def Distance_Correlation(self, latent, control):
         matrix_a = tf.math.sqrt(tf.math.reduce_sum(tf.math.square(tf.expand_dims(latent,axis=0)  -  tf.expand_dims(latent,1)),axis=-1) + 1e-12)
@@ -46,7 +28,7 @@ class Loss_DC(tf.keras.losses.Loss):
 
 
     def __call__(self,y_pred,y_true,latent,controls):
-        cls_loss = self.ce(y_pred,y_true)
+        cls_loss = self.ce(y_true,y_pred)
         dc_loss = 0
         DC_results = []
         for control in controls:
@@ -58,7 +40,44 @@ class Loss_DC(tf.keras.losses.Loss):
         else:
             dc_loss /= len(controls)+1e-12 
         loss = cls_loss + self.alpha*dc_loss
-        #print("cls_loss:",cls_loss)
-        #print("dc_loss:",dc_loss)
+        
         return loss,cls_loss,dc_loss,DC_results
+
+
+def run_nets(nets, idx, inputs, targets, criterion):
+    with tf.GradientTape() as tape:
+        eval_sub_net = list(range(idx))
+        ref_features = []
+        for sub_net_idx in eval_sub_net:
+            _, feature = nets[sub_net_idx](inputs)
+            ref_features.append(feature.numpy())
+
+        outputs, learned_feature = nets[idx](inputs,training=True) 
+        loss, _, _, DC_results = criterion(outputs, targets, learned_feature, ref_features)
+        grads = tape.gradient(loss,nets[idx].trainable_weights) 
+             
+        if len(DC_results) < len(nets):
+            for _ in range(len(nets) - 1 - len(DC_results)):
+                DC_results.append(0.0)
+        DC_results = np.asarray(DC_results)
+        return outputs, loss, DC_results,grads
+
+
+def eval_nets(nets, idx, inputs, targets, criterion):
+    eval_sub_net = list(range(idx))
+    ref_features = []
+    for sub_net_idx in eval_sub_net:
+        _, feature = nets[sub_net_idx](inputs)
+        ref_features.append(feature.numpy())
+
+        outputs, learned_feature = nets[idx].predict(inputs,verbose=0)
+        loss, _, _, DC_results = criterion(outputs, targets, learned_feature, ref_features)
+        
+    if len(DC_results) < len(nets):
+        for _ in range(len(nets) - 1 - len(DC_results)):
+            DC_results.append(0.0)
+    DC_results = np.asarray(DC_results)
+    return outputs, loss, DC_results
+
+
 
