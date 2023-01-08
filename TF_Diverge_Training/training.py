@@ -4,8 +4,6 @@ By default it will train ResNet18 on CIFAR10 to produce results in the paper.
 """
 import albumentations as A
 import tensorflow as tf
-import os 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 import tensorflow.keras as keras
 # from torchvision import datasets
 from tensorflow.keras.datasets import cifar10
@@ -24,7 +22,7 @@ parser.add_argument('--alpha', default=0.05, type=float, help='balance between a
 parser.add_argument('--resume', '-r', action='store_true',
                     help='resume from checkpoint')
 parser.add_argument('--num_nets', default=3, type=int, help='number of sub-networks')
-parser.add_argument('--batch_size', default=256, type=int, help='batch size')
+parser.add_argument('--batch_size', default=128, type=int, help='batch size')
 # parser.add_argument('--workers', default=2, type=int, help='number of workers for dataloader')
 parser.add_argument('--network', default='resnet152', type=str, help='name of the network')
 parser.add_argument('--epochs',type=int,help="training epochs. 200 according to the paper.",default=200)
@@ -53,15 +51,20 @@ start_epoch = 0  # start from epoch 0 or last checkpoint epoch
 # Get dataset
 if args.dataset=="cifar10":
     train_gen,test_gen = prepare_cifar10(args.batch_size)
-    scheduler = tf.keras.optimizers.schedules.CosineDecay(
-    args.lr, decay_steps=120, alpha=0.0, name=None
-)
+    scheduler = CosineDecay(
+                            args.lr,
+                            steps_per_epoch=len(train_gen),
+                            decay_steps=120,
+                            alpha=0.0,
+                            name=None
+)#decay every epoch
 elif args.dataset=="imagenet":
     train_gen,test_gen,n_train,n_val = prepare_imagenet(args.batch_size)
     #My customized MultiStepLR. Keras doesn't implement this.
     scheduler = MultiStepLR(
-                            lr=args.lr,batch_size=args.batch_size,
-                            dataset_size=n_train,milestones=[10,20,30],
+                            lr=args.lr,
+                            steps_per_epoch=len(train_gen),
+                            milestones=[10,20,30],
                             gamma=0.1
                             )
 # Model
@@ -80,12 +83,11 @@ if args.dataset=='cifar10':
 else:
     net = [model_name(input_shape=(224,224,3),classes=10) for _ in range(args.num_nets)]
 try:
-    optimizers = [keras.optimizers.SGD(learning_rate=scheduler,momentum=0.9,decay=5e-4,nesterov=True) for _ in range(args.num_nets)]
+    optimizers = [keras.optimizers.SGD(learning_rate=scheduler,momentum=0.9,decay=5e-4) for _ in range(args.num_nets)]
 except:
-    optimizers = [keras.optimizers.SGD(learning_rate=scheduler,momentum=0.9,weight_decay=5e-4,nesterov=True) for _ in range(args.num_nets)]
+    optimizers = [keras.optimizers.SGD(learning_rate=scheduler,momentum=0.9,weight_decay=5e-4) for _ in range(args.num_nets)]
     
 model_paths = ['./checkpoint/ckpt_'+args.network+"_"+str(idx)+"_"+args.dataset for idx in range(args.num_nets)]
-
 if args.resume:
     # Load checkpoint.
     print('==> Resuming from checkpoint..')
@@ -128,7 +130,6 @@ def train(epoch):
                 grads = tape.gradient(loss,net[idx].trainable_weights)            
                 optimizers[idx].apply_gradients(zip(grads,net[idx].trainable_weights))
                 train_loss += loss.numpy()
-
             predicted = tf.math.argmax(outputs,axis=1)
             targets = tf.math.argmax(targets,axis=1)
             total += len(targets)
@@ -197,7 +198,7 @@ def test(epoch):
                 os.mkdir('checkpoint')
             net[idx].save(model_paths[idx])
             json.dump(log,open(model_paths[idx]+"_log.json","w"))
-            np.save(model_paths[idx]+"_optimizer.npy",optimizers[idx].get_weights())
+            #np.save(model_paths[idx]+"_optimizer.npy",optimizers[idx].get_weights())
             best_acc[idx] = current_acc[idx]
 
 
