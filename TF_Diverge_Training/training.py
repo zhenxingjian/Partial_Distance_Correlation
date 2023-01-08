@@ -24,7 +24,7 @@ parser.add_argument('--resume', '-r', action='store_true',
 parser.add_argument('--num_nets', default=3, type=int, help='number of sub-networks')
 parser.add_argument('--batch_size', default=128, type=int, help='batch size')
 # parser.add_argument('--workers', default=2, type=int, help='number of workers for dataloader')
-parser.add_argument('--network', default='resnet152', type=str, help='name of the network')
+parser.add_argument('--network', default='resnet18', type=str, help='name of the network')
 parser.add_argument('--epochs',type=int,help="training epochs. 200 according to the paper.",default=200)
 parser.add_argument('--dataset',type=str,help="cifar10 or imagenet",default="cifar10")
 args = parser.parse_args()
