@@ -132,9 +132,6 @@ def train(epoch):
             predicted = tf.math.argmax(outputs,axis=1)
             targets = tf.math.argmax(targets,axis=1)
             total += len(targets)
-            # if total==0:
-            #     print(f"total=0!!!batch size{batch_idx}")
-            #     print(targets)
             correct += tf.math.count_nonzero(tf.math.equal(predicted,(targets))).numpy()
             DC_results_total += DC_results
             
