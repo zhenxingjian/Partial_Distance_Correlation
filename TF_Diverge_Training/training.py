@@ -15,7 +15,9 @@ import argparse
 import json
 from DC_criterion import Loss_DC,run_nets,eval_nets
 from utils import *
-from Resnet import *
+# from Resnet import *
+from Resnet1 import *
+
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--alpha', default=0.05, type=float, help='balance between accuracy and DC')
@@ -54,7 +56,7 @@ if args.dataset=="cifar10":
     scheduler = CosineDecay(
                             args.lr,
                             steps_per_epoch=len(train_gen),
-                            decay_steps=120,
+                            decay_steps=140,
                             alpha=0.0,
                             name=None
 )#decay every epoch

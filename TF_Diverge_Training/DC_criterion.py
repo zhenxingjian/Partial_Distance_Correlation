@@ -70,8 +70,8 @@ def eval_nets(nets, idx, inputs, targets, criterion):
         _, feature = nets[sub_net_idx](inputs)
         ref_features.append(feature.numpy())
 
-        outputs, learned_feature = nets[idx].predict(inputs,verbose=0)
-        loss, _, _, DC_results = criterion(outputs, targets, learned_feature, ref_features)
+    outputs, learned_feature = nets[idx].predict(inputs,verbose=0)
+    loss, _, _, DC_results = criterion(outputs, targets, learned_feature, ref_features)
         
     if len(DC_results) < len(nets):
         for _ in range(len(nets) - 1 - len(DC_results)):
