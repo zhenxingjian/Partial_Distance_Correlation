@@ -15,8 +15,7 @@ import argparse
 import json
 from DC_criterion import Loss_DC,run_nets,eval_nets
 from utils import *
-# from Resnet import *
-from Resnet1 import *
+from Resnet import *
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
