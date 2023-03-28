@@ -201,31 +201,37 @@ class CosineDecay(tf.keras.optimizers.schedules.LearningRateSchedule):
         }
 
 
-def prepare_cifar10(batch_size):
+def prepare_cifar10(batch_size,augs: list=[]):
+    """
+    return preprocessed cifar10 dataset as generators.
+    @param augs: list of keras augmentation layers
+    """
     print('==> Preparing CIFAR10..')
-
-    (x_train,y_train),(x_test,y_test) = keras.datasets.cifar10.load_data()
-
-
-    train_gen =  keras.preprocessing.image.ImageDataGenerator(
-        # horizontal_flip = True,
-        featurewise_center = True,
-        featurewise_std_normalization = True,
-        rescale = True
-    )
-    test_gen =  keras.preprocessing.image.ImageDataGenerator(
-        featurewise_center = True,
-        featurewise_std_normalization = True,
-        rescale = True
-    )
-    train_gen.fit(x_train)
-    test_gen.fit(x_test)
-    y_train = keras.utils.to_categorical(y_train)
-    y_test = keras.utils.to_categorical(y_test)
-    return train_gen.flow(x_train,y_train,batch_size=batch_size,shuffle=True),test_gen.flow(x_test,y_test,batch_size=batch_size)
+    train_data = tfds.load("cifar10",split="train",as_supervised=True)
+    val_data = tfds.load("cifar10",split="test",as_supervised=True)
+    augs = keras.Sequential(augs+[
+        layers.Rescaling(1./255),
+        layers.Normalization(),
+    ])
+    train_data = train_data.shuffle(1024,reshuffle_each_iteration=True).batch(batch_size).prefetch(tf.data.AUTOTUNE)
+    train_data = train_data.map(lambda x,y: (augs(x,training=True),tf.one_hot(y,depth=10)),num_parallel_calls=tf.data.AUTOTUNE)
+    
+    augs = keras.Sequential([
+        layers.Rescaling(1./255),
+        layers.Normalization(),
+    ])
+    val_data = val_data.batch(batch_size).prefetch(tf.data.AUTOTUNE)
+    val_data = val_data.map(lambda x,y: (augs(x,training=True), tf.one_hot(y,10)),num_parallel_calls=tf.data.AUTOTUNE)
+    
+    return train_data,val_data
+    
 
 
-def prepare_imagenet(batch_size):
+def prepare_imagenet(batch_size,augs: list=[]):
+    """
+    return preprocessed ImageNet dataset.
+    @param augs: list of keras augmentation layers
+    """
     print('==> Preparing ImageNet..')
 
     ## fetch imagenet dataset directly
@@ -239,27 +245,25 @@ def prepare_imagenet(batch_size):
     assert C == 1000
     assert n_train == 1281167
     assert n_validation == 50000
-    imagenet.download_and_prepare()   ## need more space in harddrive
+    imagenet.download_and_prepare()
 
     # load imagenet data from disk as tf.data.Datasets
     datasets = imagenet.as_dataset()
     train_data, val_data= datasets['train'], datasets['validation']
     assert isinstance(train_data, tf.data.Dataset)
     assert isinstance(val_data, tf.data.Dataset)
-    augmentation = keras.Sequential([
-        layers.Resizing(256, 256),#implement augmentation according to the original training scheme
+    augmentation = keras.Sequential(augs+[
+        layers.Resizing(256, 256),
         layers.CenterCrop(224,224),
         layers.Rescaling(1./255),
         layers.Normalization(),
     ])
-
-    train_data = train_data.map(lambda x,y: (augmentation(x,training=True), y))
     train_data = train_data.shuffle(1024,reshuffle_each_iteration=True).batch(batch_size).prefetch(tf.data.AUTOTUNE)
-
-    val_data = val_data.map(lambda x,y: (augmentation(x,training=True), y))
+    train_data = train_data.map(lambda x,y: (augmentation(x,training=True), tf.one_hot(y,depth=1000)),num_parallel_calls=tf.data.AUTOTUNE)
+    
     val_data = val_data.batch(batch_size).prefetch(tf.data.AUTOTUNE)
-
-    return tfds.as_numpy(train_data),tfds.as_numpy(val_data),n_train,n_validation
-
+    val_data = val_data.map(lambda x,y: (augmentation(x,training=True), tf.one_hot(y,depth=1000)),num_parallel_calls=tf.data.AUTOTUNE)
+    
+    return train_data,val_data
     
     

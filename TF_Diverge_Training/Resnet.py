@@ -83,6 +83,7 @@ def ResNet(
     input_shape=None,
     pooling=None,
     classes=1000,
+    get_features=True,
     classifier_activation="softmax",
     **kwargs,
 ):
@@ -127,6 +128,7 @@ def ResNet(
         `classifier_activation=None` to return the logits of the "top" layer.
         When loading pretrained weights, `classifier_activation` can only
         be `None` or `"softmax"`.
+      get_features: whether to output the (,2048) representations before the softmax layer
       **kwargs: For backwards compatibility only.
     Returns:
       A `keras.Model` instance.
@@ -153,14 +155,14 @@ def ResNet(
         )
 
     # Determine proper input shape
-    input_shape = imagenet_utils.obtain_input_shape(
-        input_shape,
-        default_size=224,
-        min_size=32,
-        data_format=backend.image_data_format(),
-        require_flatten=include_top,
-        weights=weights,
-    )
+    #input_shape = imagenet_utils.obtain_input_shape(
+    #    input_shape,
+    #    default_size=224,
+    #    min_size=32,
+    #    data_format=backend.image_data_format(),
+    #    require_flatten=include_top,
+    #    weights=weights,
+    # )
 
     if input_tensor is None:
         img_input = layers.Input(shape=input_shape)
@@ -171,11 +173,14 @@ def ResNet(
             img_input = input_tensor
 
     bn_axis = 3 if backend.image_data_format() == "channels_last" else 1
-
-    x = layers.ZeroPadding2D(padding=((3, 3), (3, 3)), name="conv1_pad")(
-        img_input
-    )
-    x = layers.Conv2D(64, 7, strides=2, use_bias=use_bias, name="conv1_conv")(x)
+    if input_shape == (224,224,3):
+        x = layers.ZeroPadding2D(padding=((3, 3), (3, 3)), name="conv1_pad")(
+            img_input
+        )
+        x = layers.Conv2D(64, 7, strides=2, use_bias=use_bias, name="conv1_conv")(x)
+    else:
+        x = layers.ZeroPadding2D(padding=((1,1), (1,1)),name="conv1_pad")(img_input)
+        x = layers.Conv2D(64, 3, strides=1, use_bias=use_bias,name="conv1_conv")(x)
 
     if not preact:
         x = layers.BatchNormalization(
@@ -216,7 +221,7 @@ def ResNet(
         inputs = img_input
 
     # Create model.
-    if include_top:
+    if get_features:
         model = training.Model(inputs, [x,features], name=model_name)
     else:
         model = training.Model(inputs, x, name=model_name)
@@ -493,6 +498,7 @@ def ResNet18(
     input_shape=None,
     pooling="avg",
     classes=1000,
+    get_features=True,
     **kwargs,
 ):
     """Instantiates the ResNet50 architecture."""
@@ -514,6 +520,7 @@ def ResNet18(
         input_shape,
         pooling,
         classes,
+        get_features,
         **kwargs,
     )
 
@@ -525,6 +532,7 @@ def ResNet34(
     input_shape=None,
     pooling="avg",
     classes=1000,
+    get_features=True,
     **kwargs,
 ):
     """Instantiates the ResNet50 architecture."""
@@ -546,6 +554,7 @@ def ResNet34(
         input_shape,
         pooling,
         classes,
+        get_features,
         **kwargs,
     )
 
@@ -562,6 +571,7 @@ def ResNet50(
     input_shape=None,
     pooling=None,
     classes=1000,
+    get_features=True,
     **kwargs,
 ):
     """Instantiates the ResNet50 architecture."""
@@ -583,6 +593,7 @@ def ResNet50(
         input_shape,
         pooling,
         classes,
+        get_features
         **kwargs,
     )
 
@@ -597,6 +608,7 @@ def ResNet101(
     input_shape=None,
     pooling="avg",
     classes=1000,
+    get_features=True,
     **kwargs,
 ):
     """Instantiates the ResNet101 architecture."""
@@ -618,6 +630,7 @@ def ResNet101(
         input_shape,
         pooling,
         classes,
+        get_features,
         **kwargs,
     )
 
@@ -632,6 +645,7 @@ def ResNet152(
     input_shape=None,
     pooling="avg",
     classes=1000,
+    get_features=True,
     **kwargs,
 ):
     """Instantiates the ResNet152 architecture."""
@@ -653,6 +667,7 @@ def ResNet152(
         input_shape,
         pooling,
         classes,
+        get_features,
         **kwargs,
     )
 

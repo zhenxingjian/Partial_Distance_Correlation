@@ -16,7 +16,7 @@ import json
 from DC_criterion import Loss_DC,run_nets,eval_nets
 from utils import *
 from Resnet import *
-
+import tensorflow.keras.layers as layers
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--alpha', default=0.05, type=float, help='balance between accuracy and DC')
@@ -51,16 +51,23 @@ start_epoch = 0  # start from epoch 0 or last checkpoint epoch
 
 # Get dataset
 if args.dataset=="cifar10":
-    train_gen,test_gen = prepare_cifar10(args.batch_size)
+    #train_gen,test_gen = prepare_cifar10(args.batch_size)
+    input_shape = (32,32,3)
+    train_gen,test_gen = prepare_cifar10(args.batch_size, augs= [
+                                                                #layers.Reshape(input_shape,input_shape=input_shape), 
+                                                                layers.ZeroPadding2D(4,"channels_last"),
+                                                                layers.RandomCrop(32,32), 
+                                                                layers.RandomFlip("horizontal")
+                                                                ]) 
     scheduler = CosineDecay(
                             args.lr,
                             steps_per_epoch=len(train_gen),
-                            decay_steps=140,
+                            decay_steps=100,
                             alpha=0.0,
                             name=None
 )#decay every epoch
 elif args.dataset=="imagenet":
-    train_gen,test_gen,n_train,n_val = prepare_imagenet(args.batch_size)
+    train_gen,test_gen = prepare_imagenet(args.batch_size)
     #My customized MultiStepLR. Keras doesn't implement this.
     scheduler = MultiStepLR(
                             lr=args.lr,
@@ -89,6 +96,7 @@ except:
     optimizers = [keras.optimizers.SGD(learning_rate=scheduler,momentum=0.9,weight_decay=5e-4) for _ in range(args.num_nets)]
     
 model_paths = ['./checkpoint/ckpt_'+args.network+"_"+str(idx)+"_"+args.dataset for idx in range(args.num_nets)]
+nets[0].summary()
 if args.resume:
     # Load checkpoint.
     print('==> Resuming from checkpoint..')
@@ -117,15 +125,7 @@ def train(epoch):
         total = 0
 
         DC_results_total = np.zeros(args.num_nets-1)
-        #enumerate(train_gen) will iterate endlessly
-        for batch_idx in range(len(train_gen)):
-            batch = next(train_gen)
-            if isinstance(batch,dict):   #tfds
-                inputs = batch['image']
-                targets = batch['label']
-            else :
-                (inputs, targets) = batch#keras ImageDataGenerator
-
+        for batch_idx,(inputs,targets) in enumerate(train_gen):
             outputs, loss, DC_results,grads = run_nets(nets, idx, inputs, targets, criterion)
             optimizers[idx].apply_gradients(zip(grads,nets[idx].trainable_weights))
 
@@ -135,14 +135,10 @@ def train(epoch):
             total += len(targets)
             correct += tf.math.count_nonzero(tf.math.equal(predicted,(targets))).numpy()
             DC_results_total += DC_results
-            
-            if batch_idx>len(train_gen):
-                print('bug')
             progress_bar(batch_idx, len(train_gen), 'Loss: %.3f | Acc: %.3f%% (%d/%d) | DC0: %.3f | DC1: %.3f'
                         % (loss, 100.*correct/total, correct, total, 
                             DC_results_total[0]/(batch_idx+1) , DC_results_total[1]/(batch_idx+1) ))
             batch_idx += 1
-        train_gen.on_epoch_end()
 
 
 
@@ -154,14 +150,7 @@ def test(epoch):
         correct = 0
         total = 0
         DC_results_total = np.zeros(args.num_nets-1)
-
-        for batch_idx in range(len(test_gen)):
-            batch = next(test_gen)
-            if isinstance(batch,dict):   #grab data from tfds
-                inputs = batch['image']
-                targets = batch['label']
-            else :
-                (inputs, targets) = batch#grab data from keras ImageDataGenerator
+        for batch_idx,(inputs,targets) in enumerate(test_gen):
                 outputs, loss, DC_results = eval_nets(nets, idx, inputs, targets, criterion)
                 loss = criterion.CE(outputs, targets)
 
@@ -178,7 +167,6 @@ def test(epoch):
                             % (test_loss/(batch_idx+1), 100.*correct/total, correct, total, 
                             DC_results_total[0]/(batch_idx+1) , DC_results_total[1]/(batch_idx+1) ))
                 batch_idx += 1
-        test_gen.on_epoch_end()
 
         # Save checkpoint.
         acc = 100.*correct/total
