@@ -15,7 +15,7 @@ import argparse
 import json
 from DC_criterion import Loss_DC,run_nets,eval_nets
 from utils import *
-from Resnet import *
+from models import *
 import tensorflow.keras.layers as layers
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
@@ -28,7 +28,10 @@ parser.add_argument('--batch_size', default=128, type=int, help='batch size')
 parser.add_argument('--network', default='resnet18', type=str, help='name of the network')
 parser.add_argument('--epochs',type=int,help="training epochs. 200 according to the paper.",default=200)
 parser.add_argument('--dataset',type=str,help="cifar10 or imagenet",default="cifar10")
+parser.add_argument('--log_loss', "-l", type=eval, default=True, help='log training and validation loss in txt files')
 args = parser.parse_args()
+
+implemented_nets = ["resnet18", "resnet34", "resnet101", "resnet152"] #add to this list if you implement more models in models.py
 
 # def preprocess(x,y):
 #     """
@@ -46,8 +49,6 @@ args = parser.parse_args()
 
 best_acc = [0 for _ in range(args.num_nets)]  # best test accuracy
 start_epoch = 0  # start from epoch 0 or last checkpoint epoch
-
-
 
 # Get dataset
 if args.dataset=="cifar10":
@@ -77,41 +78,40 @@ elif args.dataset=="imagenet":
                             )
 # Model
 print('==> Building model..')
-#net = ResNet18(num_nets = args.num_nets)
-if args.network == 'resnet152':
-    model_name = ResNet152
-elif args.network == 'resnet34':
-    model_name = ResNet34
-elif args.network == 'resnet18':
-    model_name = ResNet18
-elif args.network == 'resnet101':
-    model_name= ResNet101
+if args.network in implemented_nets:
+    model_name = eval(args.network) #functional programming :) :)
+else:
+    raise NotImplementedError("Network %s not implemented! Available options are " % args.network, implemented_nets)
+
 if args.dataset=='cifar10':
     nets = [model_name(input_shape=(32,32,3),classes=10) for _ in range(args.num_nets)]
 else:
     nets = [model_name(input_shape=(224,224,3),classes=10) for _ in range(args.num_nets)]
 try:
-    optimizers = [keras.optimizers.SGD(learning_rate=scheduler,momentum=0.9,decay=5e-4) for _ in range(args.num_nets)]
+    optims = [keras.optimizers.SGD(learning_rate=scheduler,momentum=0.9,decay=5e-4) for _ in range(args.num_nets)]
 except:
-    optimizers = [keras.optimizers.SGD(learning_rate=scheduler,momentum=0.9,weight_decay=5e-4) for _ in range(args.num_nets)]
+    optims = [keras.optimizers.SGD(learning_rate=scheduler,momentum=0.9,weight_decay=5e-4) for _ in range(args.num_nets)]
     
-model_paths = ['./checkpoint/ckpt_'+args.network+"_"+str(idx)+"_"+args.dataset for idx in range(args.num_nets)]
+model_paths = [f'./checkpoints/{args.network}/ckpt_' + str(idx) + "_" + args.dataset for idx in range(args.num_nets) ]
+optim_paths = [os.path.join(model_paths[idx], "optim") for idx in range(args.num_nets)]
+checkpoints = [tf.train.Checkpoint(optmizer=optims[idx]) for idx in range(args.num_nets)]
+
 nets[0].summary()
+
 if args.resume:
     # Load checkpoint.
     print('==> Resuming from checkpoint..')
-    assert os.path.isdir('checkpoint'), 'Error: no checkpoint directory found!'
-    assert os.path.exists('./checkpoint/ckpt_'+str(args.num_nets-1))
+    assert os.path.isdir('checkpoints'), 'Error: cannot find directory "checkpoints"!'
+    
     for idx in range(args.num_nets):
+        assert os.path.isdir(model_paths[idx]), f'Error: no checkpoint directory found at {model_paths[idx]} !'
+        
         log = json.load(model_paths[idx]+'_log.json')
         nets[idx] = keras.models.load_model(model_paths[idx])
         best_acc[idx] = log['acc']
         start_epoch = max(start_epoch, log['epoch'])
-        #set up otimizer
-        optim_weights = np.load(model_paths[idx]+"_optimizer.npy")
-        optimizers[idx].set_weights(optim_weights)
-
-
+        statuses = [checkpoints[idx].restore(tf.train.latest_checkpoint(model_paths[idx])) for idx in range(args.num_nets)]
+        statuses[idx].assert_consumed() # optional sanity check
 
 criterion = Loss_DC(alpha = args.alpha)
 
@@ -125,19 +125,28 @@ def train(epoch):
         total = 0
 
         DC_results_total = np.zeros(args.num_nets-1)
-        for batch_idx,(inputs,targets) in enumerate(train_gen):
+        for batch_idx, (inputs,targets) in enumerate(train_gen):
             outputs, loss, DC_results,grads = run_nets(nets, idx, inputs, targets, criterion)
-            optimizers[idx].apply_gradients(zip(grads,nets[idx].trainable_weights))
+            optims[idx].apply_gradients(zip(grads,nets[idx].trainable_weights))
 
             train_loss += loss.numpy()
-            predicted = tf.math.argmax(outputs,axis=1)
-            targets = tf.math.argmax(targets,axis=1)
+            predicted = tf.math.argmax(outputs, axis=1)
+            targets = tf.math.argmax(targets, axis=1)
             total += len(targets)
-            correct += tf.math.count_nonzero(tf.math.equal(predicted,(targets))).numpy()
+            correct += tf.math.count_nonzero(tf.math.equal(predicted, (targets))).numpy()
             DC_results_total += DC_results
             progress_bar(batch_idx, len(train_gen), 'Loss: %.3f | Acc: %.3f%% (%d/%d) | DC0: %.3f | DC1: %.3f'
                         % (loss, 100.*correct/total, correct, total, 
-                            DC_results_total[0]/(batch_idx+1) , DC_results_total[1]/(batch_idx+1) ))
+                            DC_results_total[0]/(batch_idx+1), DC_results_total[1]/(batch_idx+1)))
+            #log loss 
+            if args.log_loss and batch_idx == len(train_gen)-1:
+                os.makedirs(model_paths[idx], exist_ok=True)
+                
+                with open(os.path.join(model_paths[idx], "loss.txt"), "a") as f:
+                    msg = 'Epoch: %d | Training loss: %.3f | Acc: %.3f%% (%d/%d) | DC0: %.3f | DC1: %.3f'\
+                             % (epoch, loss/(batch_idx+1), 100.*correct/total, correct, total, \
+                                DC_results_total[0]/(batch_idx+1), DC_results_total[1]/(batch_idx+1)) + "\n"
+                    f.write(msg)
             batch_idx += 1
 
 
@@ -155,17 +164,30 @@ def test(epoch):
                 loss = criterion.CE(outputs, targets)
 
                 test_loss += loss.numpy()
-                predicted = tf.math.argmax(outputs,axis=1)
-                targets = tf.math.argmax(targets,axis=1)
+                predicted = tf.math.argmax(outputs, axis=1)
+                targets = tf.math.argmax(targets, axis=1)
 
                 total += len(targets)
-                correct += tf.math.count_nonzero(tf.math.equal(predicted,(targets))).numpy()
+                correct += tf.math.count_nonzero(tf.math.equal(predicted, (targets))).numpy()
                 
                 DC_results_total += DC_results
 
                 progress_bar(batch_idx, len(test_gen), 'Loss: %.3f | Acc: %.3f%% (%d/%d) | DC0: %.3f | DC1: %.3f'
                             % (test_loss/(batch_idx+1), 100.*correct/total, correct, total, 
-                            DC_results_total[0]/(batch_idx+1) , DC_results_total[1]/(batch_idx+1) ))
+                            DC_results_total[0]/(batch_idx+1), DC_results_total[1]/(batch_idx+1)))
+                
+                #log loss
+                if args.log_loss and batch_idx == len(test_gen)-1:
+                    os.makedirs(model_paths[idx], exist_ok=True)
+
+                    with open(os.path.join(model_paths[idx], "loss.txt"), "a") as f:
+                        msg = 'Epoch: %d | Test loss: %.3f | Acc: %.3f%% (%d/%d) | DC0: %.3f | DC1: %.3f'\
+                             % (epoch, test_loss/(batch_idx+1), 100.*correct/total, correct, total, \
+                                DC_results_total[0]/(batch_idx+1), DC_results_total[1]/(batch_idx+1)) + "\n"
+                        if idx == args.num_nets - 1:
+                            msg = msg + "\n"
+                        f.write(msg)
+                
                 batch_idx += 1
 
         # Save checkpoint.
@@ -175,18 +197,12 @@ def test(epoch):
     if sum(current_acc) > sum(best_acc):
         print('Saving..')
         for idx in range(args.num_nets):
-            log = {
-                'acc': acc,
-                'epoch': epoch,
-            }
-            if not os.path.isdir('checkpoint'):
-                os.mkdir('checkpoint')
+            os.makedirs(model_paths[idx], exist_ok=True)
+
             nets[idx].save(model_paths[idx])
-            json.dump(log,open(model_paths[idx]+"_log.json","w"))
-            #np.save(model_paths[idx]+"_optimizer.npy",optimizers[idx].get_weights())
             best_acc[idx] = current_acc[idx]
-
-
+            checkpoints[idx].save(file_prefix=optim_paths[idx])
+            
 for epoch in range(start_epoch, args.epochs):
     train(epoch)
     test(epoch)

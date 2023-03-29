@@ -491,7 +491,7 @@ def stack3(x, filters, blocks, stride1=2, groups=32, name=None):
     return x
 
 
-def ResNet18(
+def resnet18(
     include_top=True,
     weights=None,
     input_tensor=None,
@@ -525,9 +525,9 @@ def ResNet18(
     )
 
 
-def ResNet34(
+def resnet34(
     include_top=True,
-    weights="imagenet",
+    weights=None,
     input_tensor=None,
     input_shape=None,
     pooling="avg",
@@ -566,7 +566,7 @@ def ResNet34(
 )
 def ResNet50(
     include_top=True,
-    weights="imagenet",
+    weights=None,
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -601,9 +601,9 @@ def ResNet50(
 @keras_export(
     "keras.applications.resnet.ResNet101", "keras.applications.ResNet101"
 )
-def ResNet101(
+def resnet101(
     include_top=True,
-    weights="imagenet",
+    weights=None,
     input_tensor=None,
     input_shape=None,
     pooling="avg",
@@ -638,9 +638,9 @@ def ResNet101(
 @keras_export(
     "keras.applications.resnet.ResNet152", "keras.applications.ResNet152"
 )
-def ResNet152(
+def resnet152(
     include_top=True,
-    weights="imagenet",
+    weights=None,
     input_tensor=None,
     input_shape=None,
     pooling="avg",
@@ -752,5 +752,5 @@ DOC = """
 """
 
 setattr(ResNet50, "__doc__", ResNet50.__doc__ + DOC)
-setattr(ResNet101, "__doc__", ResNet101.__doc__ + DOC)
-setattr(ResNet152, "__doc__", ResNet152.__doc__ + DOC)
+setattr(resnet101, "__doc__", resnet101.__doc__ + DOC)
+setattr(resnet152, "__doc__", resnet152.__doc__ + DOC)

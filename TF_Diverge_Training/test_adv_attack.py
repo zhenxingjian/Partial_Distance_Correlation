@@ -20,7 +20,7 @@ import numpy as np
 from easydict import EasyDict
 from utils import *
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from Resnet import ResNet34, ResNet152,ResNet18,ResNet101,ResNet50
+from TF_Diverge_Training.models import resnet34, resnet152,resnet18,resnet101,ResNet50
 
 
 from cleverhans.tf2.attacks.fast_gradient_method import fast_gradient_method
