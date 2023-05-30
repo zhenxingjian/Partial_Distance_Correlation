@@ -96,6 +96,7 @@ def _imagenet(split):
             normalize,
         ])
     return datasets.ImageFolder(subdir, transform)
+
 def get_dataset(split):
     """Return the dataset as a PyTorch Dataset object"""
     return _imagenet(split)

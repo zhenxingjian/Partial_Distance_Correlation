@@ -9,6 +9,11 @@ import tensorflow.keras.layers as layers
 # import torch.nn as nn
 # import torch.nn.init as init
 
+def get_lr_metric(optimizer):
+    def lr(y_true, y_pred):
+        return tf.convert_to_tensor(optimizer._learning_rate(optimizer.iterations)) # I use ._decayed_lr method instead of .lr
+    return lr
+
 
 _, term_width = os.popen('stty size', 'r').read().split()
 term_width = int(term_width)
@@ -153,14 +158,15 @@ class CosineDecay(tf.keras.optimizers.schedules.LearningRateSchedule):
     """
 
     def __init__(
-        self, initial_learning_rate, decay_steps,steps_per_epoch, alpha=0.0, name=None
+        self, initial_learning_rate, decay_steps, steps_per_epoch, alpha=0.0, name=None
     ):
         """Applies cosine decay to the learning rate.
         Args:
           initial_learning_rate: A scalar `float32` or `float64` Tensor or a
             Python number. The initial learning rate.
           decay_steps: A scalar `int32` or `int64` `Tensor` or a Python number.
-            Number of steps to decay over.
+            Number of steps (epochs as per the original paper: https://arxiv.org/abs/1608.03983) to decay over.
+          steps_per_epoch: specifies the number of steps (batches) per epoch. Neccessary for epoch-wise decay.
           alpha: A scalar `float32` or `float64` Tensor or a Python number.
             Minimum learning rate value as a fraction of initial_learning_rate.
           name: String. Optional name of the operation.  Defaults to
@@ -172,8 +178,9 @@ class CosineDecay(tf.keras.optimizers.schedules.LearningRateSchedule):
         self.alpha = alpha
         self.name = name
         self.steps_per_epoch = steps_per_epoch
+
     def __call__(self, step):
-        step = int((step+1)/self.steps_per_epoch)
+        step = (step+1) / self.steps_per_epoch
         with tf.name_scope(self.name or "CosineDecay"):
             initial_learning_rate = tf.convert_to_tensor(
                 self.initial_learning_rate, name="initial_learning_rate"
@@ -201,7 +208,7 @@ class CosineDecay(tf.keras.optimizers.schedules.LearningRateSchedule):
         }
 
 
-def prepare_cifar10(batch_size, augs: list=[]):
+def prepare_cifar10(batch_size, augs: list=[], data_only=False):
     """
     return preprocessed cifar10 dataset as generators.
     @param augs: list of keras augmentation layers
@@ -209,21 +216,24 @@ def prepare_cifar10(batch_size, augs: list=[]):
     print('==> Preparing CIFAR10..')
     train_data = tfds.load("cifar10",split="train",as_supervised=True, data_dir=".")
     val_data = tfds.load("cifar10",split="test",as_supervised=True, data_dir=".")
-    augs = keras.Sequential(augs+[
-        layers.Rescaling(1./255),
-        layers.Normalization(),
-    ])
-    train_data = train_data.shuffle(1024,reshuffle_each_iteration=True).batch(batch_size).prefetch(tf.data.AUTOTUNE)
-    train_data = train_data.map(lambda x,y: (augs(x,training=True),tf.one_hot(y,depth=10)),num_parallel_calls=tf.data.AUTOTUNE)
+    if not data_only:
+        augs = keras.Sequential(augs + 
+        [
+            layers.Rescaling(1./255),
+            layers.Normalization(mean=(0.4914, 0.4822, 0.4465), variance=(0.2023, 0.1994, 0.2010)),
+        ])
+        train_data = train_data.shuffle(1024,reshuffle_each_iteration=True).batch(batch_size).prefetch(tf.data.AUTOTUNE)
+        train_data = train_data.map(lambda x,y: (augs(x, training=True),tf.one_hot(y,depth=10)),num_parallel_calls=tf.data.AUTOTUNE)
+        
+        augs = keras.Sequential(
+        [
+            layers.Rescaling(1./255),
+            layers.Normalization(mean=(0.4914, 0.4822, 0.4465), variance=(0.2023, 0.1994, 0.2010)),
+        ])
+        val_data = val_data.batch(batch_size).prefetch(tf.data.AUTOTUNE)
+        val_data = val_data.map(lambda x,y: (augs(x,training=True), tf.one_hot(y,10)),num_parallel_calls=tf.data.AUTOTUNE)
     
-    augs = keras.Sequential([
-        layers.Rescaling(1./255),
-        layers.Normalization(),
-    ])
-    val_data = val_data.batch(batch_size).prefetch(tf.data.AUTOTUNE)
-    val_data = val_data.map(lambda x,y: (augs(x,training=True), tf.one_hot(y,10)),num_parallel_calls=tf.data.AUTOTUNE)
-    
-    return train_data,val_data
+    return train_data, val_data
     
 
 
