@@ -251,7 +251,7 @@ def model_hanlder(model_type, input_shape, num_classes, return_feats=False):
         sys.exit(ValueError("{:s} is currently not supported.".format(model_type)))
 
         
-def get_cifar10():
+def get_cifar10(one_hot=True):
     """Download, parse and process a dataset to unit scale and one-hot labels."""
     (train_images, train_labels), (test_images, test_labels) = datasets.cifar10.load_data()
     
@@ -259,8 +259,9 @@ def get_cifar10():
     train_images, test_images = train_images/255.0, test_images/255.0
     
     # One-hot labels
-    train_labels = _one_hot(train_labels, 10)
-    test_labels = _one_hot(test_labels, 10)
+    if one_hot:
+        train_labels = _one_hot(train_labels, 10)
+        test_labels = _one_hot(test_labels, 10)
     return train_images, train_labels, test_images, test_labels
 
 def get_mean_and_std(images):
@@ -308,9 +309,9 @@ def _augment_fn(images, labels):
     images = tf.image.random_flip_left_right(images)
     return images, labels
 
-def prepare_cifar10(batch_size, aug=False):
+def prepare_cifar10(batch_size, aug=False, one_hot=True):
 
-    train_images, train_labels, test_images, test_labels = get_cifar10()
+    train_images, train_labels, test_images, test_labels = get_cifar10(one_hot)
     mean, std = get_mean_and_std(train_images)
     train_images = normalize(train_images, mean, std)
     test_images = normalize(test_images, mean, std)
@@ -323,7 +324,7 @@ def prepare_cifar10(batch_size, aug=False):
 
 
 
-def prepare_imagenet(batch_size, augs: list=[]):
+def prepare_imagenet(batch_size, augs: list=[], one_hot=True):
     """
     return preprocessed ImageNet dataset.
     @param augs: list of keras augmentation layers
@@ -353,12 +354,13 @@ def prepare_imagenet(batch_size, augs: list=[]):
         layers.CenterCrop(224,224),
         layers.Rescaling(1./255),
     ])
-    train_gen = train_gen.shuffle(1024,reshuffle_each_iteration=True).batch(batch_size).prefetch(tf.data.AUTOTUNE)
-    train_gen = train_gen.map(lambda x,y: (augmentation(x,training=True), tf.one_hot(y,depth=1000)),num_parallel_calls=tf.data.AUTOTUNE)
-    
+    train_gen = train_gen.shuffle(1024,reshuffle_each_iteration=True).batch(batch_size).prefetch(tf.data.AUTOTUNE)    
     test_gen = test_gen.batch(batch_size * 2).prefetch(tf.data.AUTOTUNE)
-    test_gen = test_gen.map(lambda x,y: (augmentation(x,training=True), tf.one_hot(y,depth=1000)),num_parallel_calls=tf.data.AUTOTUNE)
-    
+    train_gen = train_gen.map(lambda x,y: (augmentation(x,training=True),y),num_parallel_calls=tf.data.AUTOTUNE)
+    test_gen = test_gen.map(lambda x,y: (augmentation(x,training=True), y),num_parallel_calls=tf.data.AUTOTUNE)
+    if one_hot:
+        train_gen = train_gen.map(lambda x,y: (x, tf.one_hot(y, depth=C)),num_parallel_calls=tf.data.AUTOTUNE)
+        test_gen = test_gen.map(lambda x,y: (x, tf.one_hot(y, depth=C)),num_parallel_calls=tf.data.AUTOTUNE)
     #normalize
     norm = layers.Normalization(axis=-1)
     norm.adapt(train_gen)

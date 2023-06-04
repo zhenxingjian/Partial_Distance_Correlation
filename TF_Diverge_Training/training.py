@@ -136,8 +136,8 @@ class StackedTrainer():
                 self.test_acc[net_idx].reset_states()
     
                 
-                DC_results = np.zeros(len(self.models) - 1)
                 #train over batches
+                DC_results = np.zeros(len(self.models) - 1)
                 for batch_idx, (images, labels) in enumerate(train_gen):
                     DC_results += self.train_step(images, labels, net_idx)
                     progress_bar(batch_idx, len(train_gen), f'Training: net {net_idx} | ' + 'Loss: %.3f | Acc: %.3f%% | DC0: %.3f | DC1: %.3f|'
@@ -145,8 +145,8 @@ class StackedTrainer():
                             DC_results[0]/(batch_idx+1), DC_results[1]/(batch_idx+1)))
                 
 
-                DC_results = np.zeros(len(self.models) - 1)
-                #test over batches    
+                #test over batches
+                DC_results = np.zeros(len(self.models) - 1)    
                 for batch_idx, (images, labels) in enumerate(test_gen):
                     DC_results += self.test_step(images, labels, net_idx)
                     progress_bar(batch_idx, len(test_gen), f'Val: net {net_idx} | ' + 'Loss: %.3f | Acc: %.3f%% | DC0: %.3f | DC1: %.3f|'
