@@ -1,4 +1,3 @@
-import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
@@ -20,8 +19,8 @@ import numpy as np
 from easydict import EasyDict
 from utils import *
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from TF_Diverge_Training.models import resnet34, resnet152,resnet18,resnet101,ResNet50
-
+from models import *
+from training import implemented_nets
 
 from cleverhans.tf2.attacks.fast_gradient_method import fast_gradient_method
 from cleverhans.tf2.attacks.spsa import spsa
@@ -39,7 +38,7 @@ parser.add_argument('--resume', '-r', action='store_true',
                     help='resume from checkpoint')
 parser.add_argument('--num_nets', default=3, type=int, help='number of sub-networks')
 # parser.add_argument('--workers', default=2, type=int, help='number of wokers')
-parser.add_argument('--network', default='resnet152', type=str, help='name of the network')
+parser.add_argument('--network', default='resnet18', type=str, help='name of the network', choices=implemented_nets)
 parser.add_argument('--dataset',type=str,help="cifar10 or imagenet",default="cifar10")
 
 args = parser.parse_args()
@@ -55,20 +54,27 @@ print('==> Preparing data..')
 
 if args.dataset=="cifar10":
     train_gen,test_gen = prepare_cifar10(args.batch_size)
-    scheduler = tf.keras.optimizers.schedules.CosineDecay(
-    args.lr, decay_steps=120, alpha=0.0, name=None
-)
+    input_shape = (32, 32, 3)
+    num_classes = 10
+
 elif args.dataset=="imagenet":
     train_gen,test_gen,n_train,n_val = prepare_imagenet(args.batch_size)
+    input_shape = (224, 224, 3)
+    num_classes = 1000
 
-
-classes = ('plane', 'car', 'bird', 'cat', 'deer',
-           'dog', 'frog', 'horse', 'ship', 'truck')
 
 # Model``
-checkpoint_for_attack = keras.model.load_model('./checkpoint/ckpt_'+args.network+"_"+str(1)+'_'+args.dataset)
-checkpoint_for_baseline_eval = keras.model.load_model('./checkpoint/ckpt_'+args.network+"_"+str(0)+'_'+args.dataset)
-checkpoint_for_our_eval = keras.model.load_model('./checkpoint/ckpt_'+args.network+"_"+str(2)+'_'+args.dataset)
+models = [model_hanlder(args.network, input_shape, num_classes, return_feats=True) for _ in range(args.num_nets)]
+ckpts = [tf.train.Checkpoint(model=model) for model in models]  
+managers = [tf.train.CheckpointManager(ckpts[i],
+            f'./checkpoints/{args.network}/net{i}', max_to_keep=1)
+            for i in range(args.num_nets)]
+for idx, ckpt in enumerate(ckpts):
+    ckpt.restore(managers[idx].latest_checkpoint)
+    
+checkpoint_for_attack = models[1]
+checkpoint_for_baseline_eval = models[0]
+checkpoint_for_our_eval = models[2]
 
 
 ##### test infenrence different with attack model
@@ -77,8 +83,8 @@ class Transfer(keras.Model):
         super(Transfer, self).__init__()
         self.net = net
 
-    def forward(self, x):
-        return self.net.predict(x)[0]
+    def call(self, x):
+        return self.net(x, training=False)[0] #(outputs, features)
 
 
 net_for_attack = Transfer(checkpoint_for_attack)

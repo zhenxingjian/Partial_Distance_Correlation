@@ -126,3 +126,11 @@ def ResNet(model_type, num_classes, input_shape=(None, 32, 32, 3), return_feats=
 
 def resnet18(num_classes, input_shape=(None, 32, 32, 3), return_feats=False):
     return ResNet('resnet18', num_classes, input_shape, return_feats)
+def resnet34(num_classes, input_shape=(None, 32, 32, 3), return_feats=False):
+    return ResNet('resnet34', num_classes, input_shape, return_feats)
+def resnet50(num_classes, input_shape=(None, 32, 32, 3), return_feats=False):
+    return ResNet('resnet50', num_classes, input_shape, return_feats)
+def resnet101(num_classes, input_shape=(None, 32, 32, 3), return_feats=False):
+    return ResNet('resnet101', num_classes, input_shape, return_feats)
+def resnet152(num_classes, input_shape=(None, 32, 32, 3), return_feats=False):
+    return ResNet('resnet152', num_classes, input_shape, return_feats)

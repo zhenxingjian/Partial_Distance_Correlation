@@ -1,241 +1,243 @@
-"""
-This is the main divergr training module for CIFAR10 and ImageNet.
-By default it will train ResNet18 on CIFAR10 to produce results in the paper.
-"""
-import albumentations as A
+"""Train CIFAR-10 with TensorFlow2.0."""
 import tensorflow as tf
-import tensorflow.keras as keras
-# from torchvision import datasets
-from tensorflow.keras.datasets import cifar10
-from tensorflow.keras.utils import to_categorical
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-import os
-import numpy as np
-import argparse
-import json
-from DC_criterion import Loss_DC,run_nets,eval_nets
-from utils import *
-from models.resnet import *
-import tensorflow.keras.layers as layers
+from tensorflow.keras import layers
 
-#add to this list if you implement more models in models.py
+import numpy as np
+import matplotlib.pyplot as plt
+import os
+import sys
+import argparse
+from tqdm import tqdm
+from DC_criterion import *
+from models import *
+from utils import *
+from datetime import datetime
+import matplotlib.pyplot as plt
+
+current_time = datetime.now()
+formatted_time = current_time.strftime("%Y-%m-%d %H:%M:%S")
+
+#Modify your own model in models by 
+#1. Returning the last feature output before softmax layer at your convenience
+#2. Adapt first conv layer by input_shape (3*3 for cifar and 7*7 for ImageNet)  
+#and add to this list
 implemented_nets = ["resnet18", "resnet34", "resnet101", "resnet152"]     
 
-parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
-parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
-parser.add_argument('--alpha', default=0.05, type=float, help='balance between accuracy and DC')
-parser.add_argument('--resume', '-r', action='store_true',
-                    help='resume from checkpoint')
+parser = argparse.ArgumentParser(description='TensorFlow2.0 CIFAR-10 Training')
 parser.add_argument('--num_nets', default=3, type=int, help='number of sub-networks')
+parser.add_argument('--network', default='resnet18', type=str, help='model type', choices=implemented_nets)
+parser.add_argument('--lr', default=1e-1, type=float, help='learning rate')
 parser.add_argument('--batch_size', default=128, type=int, help='batch size')
-# parser.add_argument('--workers', default=2, type=int, help='number of workers for dataloader')
-parser.add_argument('--network', default='resnet18', type=str, help='name of the network', choices=implemented_nets)
-parser.add_argument('--epochs',type=int,help="training epochs. 200 according to the paper.",default=200)
+parser.add_argument('--epoch', default=200, type=int, help='number of training epoch')
+parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
+parser.add_argument('--gpu', default=0, type=int, help='specify which gpu to be used')
+parser.add_argument("--notes", default=formatted_time, type=str, help="notes you want to add to the convergence plot")
+parser.add_argument('--alpha', default=0.05, type=float, help='balance between accuracy and DC')
 parser.add_argument('--dataset',type=str,help="cifar10 or imagenet",default="cifar10")
-parser.add_argument('--log_loss', "-l", type=eval, default=True, help='log training and validation loss in txt files')
-parser.add_argument('--debug', action='store_true', help='debug mode using only CE loss')
 parser.add_argument("--aug", action="store_true", help="use data augmentation or not")
-parser.add_argument("--notes", type=str, help="notes for this run")
-parser.add_argument("--gpu", type=str, help="gpu to use", default="0")
+parser.add_argument("--debug", action="store_true", help="debug mode")
 args = parser.parse_args()
-os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
+
+
+os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
 args.network = args.network.lower()
+CE_loss = tf.keras.losses.CategoricalCrossentropy()
+class StackedTrainer():
+    def __init__(self, model_type, scheduler, input_shape, num_classes, **kwargs):
+        self.models = []
+        for _ in range(args.num_nets):
+            self.models.append(model_hanlder(model_type, input_shape, num_classes, return_feats=True))
 
-debug = args.debug #1. CosineDecay could cause the discrepancy 
-return_feats = not debug
+        self.loss_func = Loss_DC(alpha=args.alpha)
 
 
-best_acc = [0 for _ in range(args.num_nets)]  # best test accuracy
-start_epoch = 0  # start from epoch 0 or last checkpoint epoch
-train_acc = keras.metrics.CategoricalAccuracy()
-test_acc = keras.metrics.CategoricalAccuracy()
-train_loss = keras.metrics.Mean(name='train_loss')
-test_loss = keras.metrics.Mean(name='test_loss')
-train_acc_to_plot = []
-test_acc_to_plot = []
-
-# Get dataset
-if args.dataset=="cifar10":
-    #train_gen,test_gen = prepare_cifar10(args.batch_size)
-    input_shape = (32,32,3)
-    train_gen, test_gen = prepare_cifar10(args.batch_size, args.aug) 
-    scheduler = CosineDecay(
-                            args.lr,
-                            steps_per_epoch=len(train_gen),
-                            decay_steps=200,
-                            alpha=0.0,
-                            name=None)#decay every epoch
-
-elif args.dataset=="imagenet":
-    train_gen,test_gen = prepare_imagenet(args.batch_size)
-    #My customized MultiStepLR. Keras doesn't implement this.
-    scheduler = MultiStepLR(
-                            lr=args.lr,
-                            steps_per_epoch=len(train_gen),
-                            milestones=[10,20,30],
-                            gamma=0.1
-                            )
-# Model
-print('==> Building model..')
-if args.network in implemented_nets:
-    model_name = eval(args.network) #functional programming :) :)
-else:
-    raise NotImplementedError("%s is not implemented! Available options are " % args.network, implemented_nets)
-
-if debug:
-    nets = [model_name(num_classes=10) for _ in range(args.num_nets)]
-else:
-    if args.dataset=='cifar10':
-        nets = [model_name(input_shape=(None, 32,32,3), num_classes=10, return_feats=return_feats) for _ in range(args.num_nets)]
-    else:
-        nets = [model_name(input_shape=(None, 224,224,3), num_classes=10, return_feats=return_feats) for _ in range(args.num_nets)]
-
+        self.optims = [tf.keras.optimizers.SGD(learning_rate=scheduler[i], momentum=0.9) for i in range(len(self.models))]
+        self.weight_decay = 5e-4
+        self.train_loss = [tf.keras.metrics.Mean(name='train_loss') for _ in range(len(self.models))]
+        self.train_acc = [tf.keras.metrics.CategoricalAccuracy(name='train_accuracy') for _ in range(len(self.models))]
+        self.test_loss = [tf.keras.metrics.Mean(name='test_loss') for _ in range(len(self.models))]
+        self.test_acc = [tf.keras.metrics.CategoricalAccuracy(name='test_accuracy') for _ in range(len(self.models))]
+        self.update_funcs = None
+        self.train_acc_to_plot = [[]] * len(self.models)
+        self.test_acc_to_plot = [[]] * len(self.models)
         
-try:
-    optims = [keras.optimizers.SGD(learning_rate=scheduler, momentum=0.9, decay=5e-4) for _ in range(args.num_nets)]
-except:
-    optims = [keras.optimizers.SGD(learning_rate=scheduler, momentum=0.9, weight_decay=5e-4) for _ in range(args.num_nets)]
-    
-model_paths = [f'./checkpoints/{args.network}/ckpt_' + str(idx) + "_" + args.dataset for idx in range(args.num_nets) ]
-optim_paths = [os.path.join(model_paths[idx], "optim") for idx in range(args.num_nets)]
-checkpoints = [tf.train.Checkpoint(optmizer=optims[idx]) for idx in range(args.num_nets)]
-checkpoints = [tf.train.CheckpointManager(checkpoints[idx], optim_paths[idx], max_to_keep=1) for idx in range(args.num_nets)]
-nets[0].summary()
-
-if args.resume:
-    # Load checkpoint.
-    print('==> Resuming from checkpoint..')
-    assert os.path.isdir('checkpoints'), 'Error: cannot find directory "checkpoints"!'
-    
-    for idx in range(args.num_nets):
-        assert os.path.isdir(model_paths[idx]), f'Error: no checkpoint directory found at {model_paths[idx]} !'
-        
-        log = json.load(model_paths[idx]+'_log.json')
-        nets[idx] = keras.models.load_model(model_paths[idx])
-        best_acc[idx] = log['acc']
-        start_epoch = max(start_epoch, log['epoch'])
-        statuses = [checkpoints[idx].restore(tf.train.latest_checkpoint(model_paths[idx])) for idx in range(args.num_nets)]
-        statuses[idx].assert_consumed() # optional sanity check
-
-criterion = Loss_DC(alpha = args.alpha)
-
-# Training
-def train(epoch):
-    
-    # @tf.function doesn't work for multiple optimizers
-    def step(inputs, targets, idx):
-        if debug:
-            with tf.GradientTape() as tape:
-                outputs = nets[idx](inputs, training=True)
-                loss = criterion.ce(targets, outputs)
-                grads = tape.gradient(loss, nets[idx].trainable_weights)
-                DC_results = [0] * (args.num_nets-1)
-                
-        else:
-            outputs, loss, DC_results = run_nets(nets, idx, inputs, targets, criterion)
-    
-        #This updates steps used for cosine decay
-        optims[net_idx].apply_gradients(zip(grads, nets[net_idx].trainable_weights))
-        train_acc(targets, outputs)
-        train_loss(loss)
-
-        return DC_results
-    
-    print('\nEpoch: %d' % epoch)
-    for net_idx in range(args.num_nets):
-        DC_results_total = np.zeros(args.num_nets-1)
-        train_acc.reset_states()
-        train_loss.reset_states()
-
-        for batch_idx, (inputs ,targets) in enumerate(train_gen):
-            
-            DC_results = step(inputs, targets, net_idx)
-            DC_results = [item.numpy() if isinstance(item, tf.Tensor) else item for item in DC_results ]
-            DC_results_total += DC_results
-            
-            progress_bar(batch_idx, len(train_gen), 'Loss: %.3f | Acc: %.3f%% | DC0: %.3f | DC1: %.3f'
-                        % (train_loss.result(), train_acc.result() * 100,
-                            DC_results_total[0] / (batch_idx + 1), 
-                            DC_results_total[1] / (batch_idx + 1))
-                            )
-            train_acc_to_plot.append(train_acc.result())
-
-            #log loss 
-            if args.log_loss and batch_idx == len(train_gen)-1:
-                os.makedirs(model_paths[net_idx], exist_ok=True)
-                
-                with open(os.path.join(model_paths[net_idx], "loss.txt"), "a") as f:
-                    msg = f"Epoch: {epoch} | Loss: {train_loss.result()} | Acc: {train_acc.result() * 100} | DC0: {DC_results_total[0]/(batch_idx+1)} | DC1: {DC_results_total[1]/(batch_idx+1)}\n"
-                    f.write(msg)
-            batch_idx += 1
-
-
-def test(epoch):
     @tf.function
-    def step(inputs, targets, idx):
-        if debug:
-            outputs = nets[idx](inputs, training=False)
-            loss = criterion.ce(targets, outputs)
-            DC_results = [0] * (args.num_nets-1)
-        else:
-            outputs, loss, DC_results = eval_nets(nets, idx, inputs, targets, criterion)
+    def train_step(self, images, labels, net_idx):
+        with tf.GradientTape() as tape:
+            # Cross-entropy loss
+            weights = self.models[net_idx].trainable_variables
+            if args.debug:
+                outputs = self.models[net_idx](images, training=True)
+                main_loss = CE_loss(labels, outputs)
+                DC_results = 0
+            else:
+                outputs, main_loss, DC_results  = run_nets(self.models, net_idx, images, labels, self.loss_func)
+            # L2 loss(weight decay)
+            l2_loss = tf.add_n([tf.nn.l2_loss(v) for v in weights])
+            loss = main_loss + l2_loss * self.weight_decay
+        grads = tape.gradient(loss, weights)
 
-        test_acc(targets, outputs)
-        test_loss(loss)
+
+        #Init update functions for each optimizer.
+        #See https://www.tensorflow.org/guide/function#creating_tfvariables
+        if self.update_funcs is None:
+            self.update_funcs = [tf.function(self.update).get_concrete_function(weights, grads, i) for i in range(len(self.models))]
+        # self.optims.apply_gradients(zip(gradients, self.models.trainable_variables))
+        self.update_funcs[net_idx](weights, grads, net_idx)
+        self.train_loss[net_idx](loss)
+        self.train_acc[net_idx](labels, outputs)
         return DC_results
     
-    global best_acc
-    for idx in range(args.num_nets):
-        DC_results_total = np.zeros(args.num_nets-1)
-        test_acc.reset_states()
-        test_loss.reset_states()
+
+
+    def update(self, weights, grads, net_idx):
+        self.optims[net_idx].apply_gradients(zip(grads, weights))
         
-        for batch_idx,(inputs,targets) in enumerate(test_gen):
-                DC_results = step(inputs, targets, idx)
-                DC_results = [item.numpy() if isinstance(item, tf.Tensor) else item for item in DC_results]
-                DC_results_total += DC_results
 
-                progress_bar(batch_idx, len(test_gen), 'Loss: %.3f | Acc: %.3f%% | DC0: %.3f | DC1: %.3f'
-                            % (test_loss.result(), test_acc.result() * 100,
-                                DC_results_total[0] / (batch_idx + 1),
-                                DC_results_total[1] / (batch_idx + 1))
-                )
-                
-                #log loss
-                if args.log_loss and batch_idx == len(test_gen)-1:
-                    os.makedirs(model_paths[idx], exist_ok=True)
-
-                    with open(os.path.join(model_paths[idx], "loss.txt"), "a") as f:
-                        msg = 'Epoch: %d | Test loss: %.3f | Acc: %.3f%% | DC0: %.3f | DC1: %.3f'\
-                             % (epoch, test_loss.result(), test_acc.result() * 100, DC_results_total[0]/(batch_idx+1), DC_results_total[1]/(batch_idx+1))
-                        
-                        msg = msg + "\n" # end of epoch
-                        f.write(msg)
-                
-                batch_idx += 1
-
-        # Save checkpoint.
-        test_acc_to_plot.append(test_acc.result().numpy() * 100)
+    @tf.function
+    def test_step(self, images, labels, net_idx):
+        if args.debug:
+            outputs = self.models[net_idx](images, training=False)
+            t_loss = CE_loss(labels, outputs)
+            DC_results = 0
+        else:
+            outputs, t_loss, DC_results = eval_nets(self.models, net_idx, images, labels, self.loss_func)
         
-    if sum(test_acc_to_plot) > sum(best_acc):
-        print('Saving..')
-        for idx in range(args.num_nets):
-            os.makedirs(model_paths[idx], exist_ok=True)
-
-            nets[idx].save(model_paths[idx])
-            best_acc[idx] = test_acc_to_plot[idx]
-            checkpoints[idx].save()
-            
-for epoch in range(start_epoch, args.epochs):
-    train(epoch)
-    test(epoch)
+        self.test_loss[net_idx](t_loss)
+        self.test_acc[net_idx](labels, outputs)
+        return DC_results
     
-#plot training history
-import matplotlib.pyplot as plt
-plt.plot(train_acc_to_plot, label="train_acc")
-plt.plot(test_acc_to_plot, label="test_acc")
-plt.legend()
-plt.title("Training history")
-plt.xlabel("Epoch")
-plt.ylabel("Accuracy")
-plt.savefig(f"{args.notes}_training_history.png")
+
+    def train(self, train_gen, test_gen, epoch):
+        best_acc = [tf.Variable(0.0) for _ in range(len(self.models))]
+        curr_epoch = [tf.Variable(0) for _ in range(len(self.models))]  # start from epoch 0 or last checkpoint epoch
+        self.ckpt_path = ['./checkpoints/{:s}/net{:d}'.format(args.network, i) for i in range(len(self.models))]
+        ckpt = [tf.train.Checkpoint(curr_epoch=curr_epoch[i], best_acc=best_acc[i],
+                                   optimizer=self.optims[i], model=self.models[i]) for i in range(len(self.models))]
+        managers = [tf.train.CheckpointManager(ckpt[i], self.ckpt_path[i], max_to_keep=1) for i in range(len(self.models))]
+        
+        
+        for net_idx in range(len(self.models)):
+            if args.resume:
+                # Load checkpoint.
+                print('==> Resuming from checkpoint...')
+                assert os.path.isdir(self.ckpt_path[net_idx]), 'Error: no checkpoint directory found!'
+                # Restore the weights
+                ckpt[net_idx].restore(managers[net_idx].latest_checkpoint)
+
+        for epoch in range(int(curr_epoch[net_idx]), args.epoch):
+            print(f"--------------------------------------------------------Epoch {epoch}-----------------------------------------------------------------------------")
+            
+            for net_idx in range(len(self.models)):
+                # Reset the metrics at the start of the next epoch
+                self.train_loss[net_idx].reset_states()
+                self.train_acc[net_idx].reset_states()
+                self.test_loss[net_idx].reset_states()
+                self.test_acc[net_idx].reset_states()
+    
+                
+                DC_results = np.zeros(len(self.models) - 1)
+                #train over batches
+                for batch_idx, (images, labels) in enumerate(train_gen):
+                    DC_results += self.train_step(images, labels, net_idx)
+                    progress_bar(batch_idx, len(train_gen), f'Training: net {net_idx} | ' + 'Loss: %.3f | Acc: %.3f%% | DC0: %.3f | DC1: %.3f|'
+                        % (self.train_loss[net_idx].result(), self.train_acc[net_idx].result() * 100,
+                            DC_results[0]/(batch_idx+1), DC_results[1]/(batch_idx+1)))
+                
+
+                DC_results = np.zeros(len(self.models) - 1)
+                #test over batches    
+                for batch_idx, (images, labels) in enumerate(test_gen):
+                    DC_results += self.test_step(images, labels, net_idx)
+                    progress_bar(batch_idx, len(test_gen), f'Val: net {net_idx} | ' + 'Loss: %.3f | Acc: %.3f%% | DC0: %.3f | DC1: %.3f|'
+                        % (self.test_loss[net_idx].result(), self.test_acc[net_idx].result() * 100,
+                            DC_results[0]/(batch_idx+1), DC_results[1]/(batch_idx+1)))
+                
+                
+                self.train_acc_to_plot[net_idx].append(self.train_acc[net_idx].result())
+                self.test_acc_to_plot[net_idx].append(self.test_acc[net_idx].result())
+
+                # Save checkpoint
+                if self.test_acc[net_idx].result() > best_acc[net_idx]:
+                    print('Saving...')
+                    if not os.path.isdir('./checkpoints/'):
+                        os.mkdir('./checkpoints/')
+                    if not os.path.isdir(self.ckpt_path[net_idx]):
+                        os.mkdir(self.ckpt_path[net_idx])
+                    best_acc[net_idx].assign(self.test_acc[net_idx].result())
+                    curr_epoch[net_idx].assign(epoch + 1)
+                    managers[net_idx].save()
+
+        self.plot_history()
+
+    def predict(self, pred_ds, best, net_idx):
+        if best:
+            ckpt = tf.train.Checkpoint(model=self.models[net_idx])
+            manager = tf.train.CheckpointManager(ckpt, self.ckpt_path[net_idx], max_to_keep=1)
+            
+            # Load checkpoint
+            print('==> Resuming from checkpoint...')
+            assert os.path.isdir(self.ckpt_path[net_idx]), 'Error: no checkpoint directory found!'
+            ckpt.restore(manager.latest_checkpoint)
+        
+        self.test_acc[net_idx].reset_states()
+        for images, labels in pred_ds:
+            self.test_step(images, labels, net_idx)
+        print ('Prediction Accuracy: {:.2f}%'.format(self.test_acc[net_idx].result()*100))
+        
+    
+    
+    def plot_history(self):
+        assert hasattr(self, "ckpt_path"), "No checkpoint path found. Please train the model first."
+        for net_idx in range(len(self.models)):
+            # Plot training history
+            plt.plot(self.train_acc_to_plot[net_idx], label='training')
+            plt.plot(self.test_acc_to_plot[net_idx], label='validation')
+            plt.legend()
+            plt.title('Training history')
+            plt.xlabel('Epoch')
+            plt.ylabel('Accuracy')
+            plt.savefig(os.path.join(self.ckpt_path[net_idx], f'{args.notes}.png'))
+
+
+
+def main():
+    # Data
+    print('==> Preparing data...')
+    if args.dataset=="cifar10":
+        #train_gen,test_gen = prepare_cifar10(args.batch_size)
+        input_shape = (32,32,3)
+        train_gen, test_gen = prepare_cifar10(args.batch_size, args.aug) 
+        scheduler = CosineDecay(
+                                args.lr,
+                                steps_per_epoch=len(train_gen),
+                                decay_steps=args.epoch,
+                                alpha=0.0,
+                                name=None)#decay every epoch
+        num_classes = 10
+        
+    elif args.dataset=="imagenet":
+        input_shape = (224,224,3)
+        train_gen,test_gen = prepare_imagenet(args.batch_size)
+        #My customized MultiStepLR. Keras doesn't implement this.
+        scheduler = MultiStepLR(
+                                lr=args.lr,
+                                steps_per_epoch=len(train_gen),
+                                milestones=[10,20,30],
+                                gamma=0.1
+                                )
+        num_classes = 1000           
+    scheduler = [scheduler for _ in range(args.num_nets)] 
+        
+    # Train
+    print('==> Building model...')
+    models = StackedTrainer(args.network, scheduler, input_shape, num_classes)
+    models.train(train_gen, test_gen, args.epoch)
+    
+
+    # Evaluate
+    for net_idx in range(args.num_nets):
+        models.predict(test_gen, best=True, net_idx=net_idx)
+
+if __name__ == "__main__":
+    main()

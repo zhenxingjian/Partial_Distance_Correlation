@@ -9,6 +9,7 @@ import os
 import sys
 import time
 import math
+from models import *
 import tensorflow.keras as keras
 import tensorflow as tf
 import tensorflow_datasets as tfds
@@ -219,7 +220,37 @@ class CosineDecay(tf.keras.optimizers.schedules.LearningRateSchedule):
         }
 
 
+def model_hanlder(model_type, input_shape, num_classes, return_feats=False):
+    if len(input_shape) == 3:
+        input_shape = (None, *input_shape)
+    if 'lenet' in model_type:
+        return LeNet(num_classes)
+    elif 'alexnet' in model_type:
+        return AlexNet(num_classes)
+    elif 'vgg' in model_type:
+        return VGG(model_type, num_classes)
+    elif 'resnet' in model_type:
+        if 'se' in model_type:
+            if 'preact' in model_type:
+                return SEPreActResNet(model_type, num_classes)
+            else:
+                return SEResNet(model_type, num_classes)
+        else:
+            if 'preact' in model_type:
+                return PreActResNet(model_type, num_classes)
+            else:
+                return ResNet(model_type, num_classes, input_shape, return_feats)
+    elif 'densenet' in model_type:
+        return DenseNet(model_type, num_classes)
+    elif 'mobilenet' in model_type:
+        if 'v2' not in model_type:
+            return MobileNet(num_classes)
+        else:
+            return MobileNetV2(num_classes)
+    else:
+        sys.exit(ValueError("{:s} is currently not supported.".format(model_type)))
 
+        
 def get_cifar10():
     """Download, parse and process a dataset to unit scale and one-hot labels."""
     (train_images, train_labels), (test_images, test_labels) = datasets.cifar10.load_data()
