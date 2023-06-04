@@ -18,18 +18,19 @@ The test accuracy (%) of a model $f_2$ on the adversarial examples generated usi
 | ImageNet | Resnet 152 |  Ours  | 68.04  | **58.34**    | **61.33**    | **52.59**      | **56.05**    | **42.61** | **47.17** |
 
 ### Qualitative Results
-![Diverge Training](result/diverge_training.png)
+![Diverge Training](../Diverge_Training/result/diverge_training.png)
 
 ## Training
-Currently only ResNet18-ResNet152 are supported.
+Currently only ResNet models are added. 
+Feel free to add more models by adapting forward function to return also the logits.
 Training checkpoint will be saved at ./checkpoint
 For ResNet18 diverge training on cifar10:
 ```python
-python training_main.py --network=resnet18 --dataset=cifar10
+python training.py --network=resnet18 --dataset=cifar10
 ```
 For ResNet18 diverge training on ImageNet:
 ```python
-python training_main.py --network=resnet18 --dataset=imagenet
+python training.py --network=resnet18 --dataset=imagenet
 ```
 
 ## Test the accuracy under adversarial attack
