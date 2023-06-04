@@ -15,11 +15,11 @@ class Loss_DC(tf.keras.losses.Loss):
         matrix_A = matrix_a - tf.math.reduce_mean(matrix_a, axis = 0, keepdims= True) - tf.math.reduce_mean(matrix_a, axis = 1, keepdims= True) + tf.math.reduce_mean(matrix_a)
         matrix_B = matrix_b - tf.math.reduce_mean(matrix_b, axis = 0, keepdims= True) - tf.math.reduce_mean(matrix_b, axis = 1, keepdims= True) + tf.math.reduce_mean(matrix_b)
         
-        Gamma_XY = tf.math.reduce_sum(matrix_A * matrix_B)/ (matrix_A.shape[0] * matrix_A.shape[1])
-        Gamma_XX = tf.math.reduce_sum(matrix_A * matrix_A)/ (matrix_A.shape[0] * matrix_A.shape[1])
-        Gamma_YY = tf.math.reduce_sum(matrix_B * matrix_B)/ (matrix_A.shape[0] * matrix_A.shape[1])
+        Gamma_XY = tf.math.reduce_sum(matrix_A * matrix_B) / (matrix_A.shape[0] * matrix_A.shape[1])
+        Gamma_XX = tf.math.reduce_sum(matrix_A * matrix_A) / (matrix_A.shape[0] * matrix_A.shape[1])
+        Gamma_YY = tf.math.reduce_sum(matrix_B * matrix_B) / (matrix_A.shape[0] * matrix_A.shape[1])
 
-        correlation_r = Gamma_XY/tf.math.sqrt(Gamma_XX * Gamma_YY + 1e-9)
+        correlation_r = Gamma_XY / tf.math.sqrt(Gamma_XX * Gamma_YY + 1e-9)
         return correlation_r
 
 
@@ -30,35 +30,31 @@ class Loss_DC(tf.keras.losses.Loss):
         for control in controls:
             DC = self.Distance_Correlation(latent, control)
             dc_loss += DC
-            DC_results.append(DC.numpy())
+            DC_results.append(DC)
         if len(controls)==0:
             dc_loss =0
         else:
             dc_loss /= len(controls) + 1e-12 
             
         loss = cls_loss + self.alpha * dc_loss
-        
         return loss, cls_loss, dc_loss, DC_results
 
-
+@tf.function
 def run_nets(nets, idx, inputs, targets, criterion):
-    with tf.GradientTape() as tape:
-        eval_sub_net = list(range(idx))
-        ref_features = []
-        for sub_net_idx in eval_sub_net:
-            _, feature = nets[sub_net_idx](inputs)
-            ref_features.append(feature.numpy())
+    eval_sub_net = list(range(idx))
+    ref_features = []
+    for sub_net_idx in eval_sub_net:
+        _, feature = nets[sub_net_idx](inputs)
+        ref_features.append(feature)
 
-        outputs, learned_feature = nets[idx](inputs, training=True) 
-        loss, _, _, DC_results = criterion(outputs, targets, learned_feature, ref_features)
-        grads = tape.gradient(loss, nets[idx].trainable_weights) 
-             
-        if len(DC_results) < len(nets):
-            for _ in range(len(nets) - 1 - len(DC_results)):
-                DC_results.append(0.0)
-        DC_results = np.asarray(DC_results)
+    outputs, learned_feature = nets[idx](inputs, training=True) 
+    loss, _, _, DC_results = criterion(outputs, targets, learned_feature, ref_features)            
+    if len(DC_results) < len(nets):
+        for _ in range(len(nets) - 1 - len(DC_results)):
+            DC_results.append(0.0)
+    # DC_results = np.asarray(DC_results)
 
-        return outputs, loss, DC_results, grads
+        return outputs, loss, DC_results
 
 
 def eval_nets(nets, idx, inputs, targets, criterion):
@@ -66,15 +62,15 @@ def eval_nets(nets, idx, inputs, targets, criterion):
     ref_features = []
     for sub_net_idx in eval_sub_net:
         _, feature = nets[sub_net_idx](inputs)
-        ref_features.append(feature.numpy())
+        ref_features.append(feature)
 
-    outputs, learned_feature = nets[idx].predict(inputs, verbose=0)
+    outputs, learned_feature = nets[idx](inputs, training=False)
     loss, _, _, DC_results = criterion(outputs, targets, learned_feature, ref_features)
         
     if len(DC_results) < len(nets):
         for _ in range(len(nets) - 1 - len(DC_results)):
             DC_results.append(0.0)
-    DC_results = np.asarray(DC_results)
+    # DC_results = np.asarray(DC_results)
     return outputs, loss, DC_results
 
 

@@ -1,3 +1,10 @@
+import tensorflow as tf
+from tensorflow.keras import datasets
+import numpy as np
+import multipledispatch
+import tensorflow.keras as keras
+import tensorflow.keras.layers as layers
+import tensorflow_datasets as tfds
 import os
 import sys
 import time
@@ -6,8 +13,7 @@ import tensorflow.keras as keras
 import tensorflow as tf
 import tensorflow_datasets as tfds
 import tensorflow.keras.layers as layers
-# import torch.nn as nn
-# import torch.nn.init as init
+
 
 def get_lr_metric(optimizer):
     def lr(y_true, y_pred):
@@ -43,11 +49,12 @@ def progress_bar(current, total, msg=None, stdout=sys.stdout):
     tot_time = cur_time - begin_time
 
     L = []
-    L.append('  Step: %s' % format_time(step_time))
-    L.append(' | Tot: %s' % format_time(tot_time))
+
     if msg:
         L.append(' | ' + msg)
-
+    L.append('  Step: %s' % format_time(step_time))
+    L.append(' | Tot: %s' % format_time(tot_time))
+    
     msg = ''.join(L)
     stdout.write(msg)
     for i in range(term_width-int(TOTAL_BAR_LENGTH)-len(msg)-3):
@@ -63,6 +70,7 @@ def progress_bar(current, total, msg=None, stdout=sys.stdout):
     else:
         stdout.write('\n')
     stdout.flush()
+
 
 def format_time(seconds):
     days = int(seconds / 3600/24)
@@ -98,12 +106,14 @@ def format_time(seconds):
 
 class MultiStepLR(tf.keras.optimizers.schedules.LearningRateSchedule):
     """
-    A MultiStepLR learning rate schedule equivalatent to the Pytorch implementation.
-    @param: lr (float): The initial learning rate.
-    @param: batch_size (int): The batch size used for training.
-    @param: dataset_size (int): The size of the dataset used for training.
-    @param: milestones (list): A list of epoch indices at which the learning rate will be multiplied by the gamma value.
-    @param: gamma (float): The multiplicative factor to apply to the learning rate at each milestone.
+    A MultiStep learning rate scheduler. 
+    Decays the learning rate of each parameter group by gamma once the number of epoch reaches one of the milestones. 
+    Args:
+        lr (float): The initial learning rate.
+        batch_size (int): The batch size used for training.
+        dataset_size (int): The size of the dataset used for training.
+        milestones (list): A list of epoch indices at which the learning rate will be multiplied by the gamma value.
+        gamma (float): The multiplicative factor to apply to the learning rate at each milestone.
     """
     def __init__(self, lr,steps_per_epoch,milestones:list,gamma:int):
         self.lr = lr
@@ -111,6 +121,7 @@ class MultiStepLR(tf.keras.optimizers.schedules.LearningRateSchedule):
         self.steps_per_epoch = self.steps_per_epoch
         self.milestone = milestones
         self.gamma = gamma
+
     def __call__(self, step):
         self.epoch = int((step+1)/self.steps_per_epoch)
         lr = self.lr
@@ -208,36 +219,80 @@ class CosineDecay(tf.keras.optimizers.schedules.LearningRateSchedule):
         }
 
 
-def prepare_cifar10(batch_size, augs: list=[], data_only=False):
-    """
-    return preprocessed cifar10 dataset as generators.
-    @param augs: list of keras augmentation layers
-    """
-    print('==> Preparing CIFAR10..')
-    train_data = tfds.load("cifar10",split="train",as_supervised=True, data_dir=".")
-    val_data = tfds.load("cifar10",split="test",as_supervised=True, data_dir=".")
-    if not data_only:
-        augs = keras.Sequential(augs + 
-        [
-            layers.Rescaling(1./255),
-            layers.Normalization(mean=(0.4914, 0.4822, 0.4465), variance=(0.2023, 0.1994, 0.2010)),
-        ])
-        train_data = train_data.shuffle(1024,reshuffle_each_iteration=True).batch(batch_size).prefetch(tf.data.AUTOTUNE)
-        train_data = train_data.map(lambda x,y: (augs(x, training=True),tf.one_hot(y,depth=10)),num_parallel_calls=tf.data.AUTOTUNE)
-        
-        augs = keras.Sequential(
-        [
-            layers.Rescaling(1./255),
-            layers.Normalization(mean=(0.4914, 0.4822, 0.4465), variance=(0.2023, 0.1994, 0.2010)),
-        ])
-        val_data = val_data.batch(batch_size).prefetch(tf.data.AUTOTUNE)
-        val_data = val_data.map(lambda x,y: (augs(x,training=True), tf.one_hot(y,10)),num_parallel_calls=tf.data.AUTOTUNE)
+
+def get_cifar10():
+    """Download, parse and process a dataset to unit scale and one-hot labels."""
+    (train_images, train_labels), (test_images, test_labels) = datasets.cifar10.load_data()
     
-    return train_data, val_data
+    # Normalize pixel values to be between 0 and 1
+    train_images, test_images = train_images/255.0, test_images/255.0
     
+    # One-hot labels
+    train_labels = _one_hot(train_labels, 10)
+    test_labels = _one_hot(test_labels, 10)
+    return train_images, train_labels, test_images, test_labels
+
+def get_mean_and_std(images):
+    """Compute the mean and std value of dataset."""
+    mean = np.mean(images, axis=(0, 1, 2))
+    std = np.std(images, axis=(0, 1, 2))
+    return mean, std
+
+def normalize(images, mean, std):
+    """Normalize data with mean and std."""
+    return (images - mean) / std
 
 
-def prepare_imagenet(batch_size,augs: list=[]):
+def dataset_generator(images, labels, batch_size, aug=False):
+
+    ds = tf.data.Dataset.from_tensor_slices((images, labels))
+    if aug:
+        ds = ds.map(_augment_fn, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    ds = ds.shuffle(len(images)).batch(batch_size)
+    ds = ds.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+    
+    return ds
+
+
+def dataset_mapper(ds, batch_size, aug=False):
+    if aug:
+        ds = ds.map(_augment_fn, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    ds = ds.shuffle(len(ds)).batch(batch_size)
+    ds = ds.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+
+    return ds
+
+
+def _one_hot(train_labels, num_classes, dtype=np.float32):
+    """Create a one-hot encoding of labels of size num_classes."""
+    return np.array(train_labels == np.arange(num_classes), dtype)
+
+def _augment_fn(images, labels):
+    padding = 4
+    image_size = 32
+    target_size = image_size + padding*2
+
+    images = tf.image.pad_to_bounding_box(images, padding, padding, target_size, target_size)
+    images = tf.image.random_crop(images, (image_size, image_size, 3))
+    images = tf.image.random_flip_left_right(images)
+    return images, labels
+
+def prepare_cifar10(batch_size, aug=False):
+
+    train_images, train_labels, test_images, test_labels = get_cifar10()
+    mean, std = get_mean_and_std(train_images)
+    train_images = normalize(train_images, mean, std)
+    test_images = normalize(test_images, mean, std)
+
+    train_gen = dataset_generator(train_images, train_labels, batch_size, aug)
+    test_gen= tf.data.Dataset.from_tensor_slices((test_images, test_labels)).\
+            batch(batch_size * 4).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+    
+    return train_gen, test_gen
+
+
+
+def prepare_imagenet(batch_size, augs: list=[]):
     """
     return preprocessed ImageNet dataset.
     @param augs: list of keras augmentation layers
@@ -259,21 +314,25 @@ def prepare_imagenet(batch_size,augs: list=[]):
 
     # load imagenet data from disk as tf.data.Datasets
     datasets = imagenet.as_dataset()
-    train_data, val_data= datasets['train'], datasets['validation']
-    assert isinstance(train_data, tf.data.Dataset)
-    assert isinstance(val_data, tf.data.Dataset)
-    augmentation = keras.Sequential(augs+[
+    train_gen, test_gen= datasets['train'], datasets['validation']
+    assert isinstance(train_gen, tf.data.Dataset)
+    assert isinstance(test_gen, tf.data.Dataset)
+    augmentation = keras.Sequential(augs + [
         layers.Resizing(256, 256),
         layers.CenterCrop(224,224),
         layers.Rescaling(1./255),
-        layers.Normalization(),
     ])
-    train_data = train_data.shuffle(1024,reshuffle_each_iteration=True).batch(batch_size).prefetch(tf.data.AUTOTUNE)
-    train_data = train_data.map(lambda x,y: (augmentation(x,training=True), tf.one_hot(y,depth=1000)),num_parallel_calls=tf.data.AUTOTUNE)
+    train_gen = train_gen.shuffle(1024,reshuffle_each_iteration=True).batch(batch_size).prefetch(tf.data.AUTOTUNE)
+    train_gen = train_gen.map(lambda x,y: (augmentation(x,training=True), tf.one_hot(y,depth=1000)),num_parallel_calls=tf.data.AUTOTUNE)
     
-    val_data = val_data.batch(batch_size).prefetch(tf.data.AUTOTUNE)
-    val_data = val_data.map(lambda x,y: (augmentation(x,training=True), tf.one_hot(y,depth=1000)),num_parallel_calls=tf.data.AUTOTUNE)
+    test_gen = test_gen.batch(batch_size * 2).prefetch(tf.data.AUTOTUNE)
+    test_gen = test_gen.map(lambda x,y: (augmentation(x,training=True), tf.one_hot(y,depth=1000)),num_parallel_calls=tf.data.AUTOTUNE)
     
-    return train_data,val_data
+    #normalize
+    norm = layers.Normalization(axis=-1)
+    norm.adapt(train_gen)
+    train_gen = train_gen.map(lambda x,y: (norm(x),y),num_parallel_calls=tf.data.AUTOTUNE)
+    norm.adapt(test_gen)
+    test_gen = test_gen.map(lambda x,y: (norm(x),y),num_parallel_calls=tf.data.AUTOTUNE)
     
-    
+    return train_gen, test_gen
